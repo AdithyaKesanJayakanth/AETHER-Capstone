@@ -1,0 +1,36 @@
+# Operating conditions used by Project AETHER. All simulations are calorically perfect air
+# (gamma 1.4, R 287.058 J/kg/K), Sutherland viscosity (mu_ref 1.716e-5 Pa s, T_ref 273.15 K, S 110.4 K),
+# laminar, constant Prandtl number 0.72. See docs/conditions.md for the derivation.
+
+gas:
+  gamma: 1.4
+  R: 287.058
+  prandtl_lam: 0.72
+  mu_ref: 1.716e-5
+  T_mu_ref: 273.15
+  sutherland_S: 110.4
+
+# Main study condition (Benchmark B): clean Apollo CM in AEDC Tunnel C, NASA TM X-1243, alpha = 0.
+# The report quotes M_inf and Re_D; the stagnation temperature is taken as 1900 R (1055.6 K), inside
+# the Tunnel C operating envelope (1650-1950 R), and the wall as a 300 K cold wall.
+main:
+  name: apollo_tunnelC_M10
+  mach: 10.18
+  T0: 1055.6            # K
+  Re_D: 1.1e+6
+  D: 0.17577            # m  (2 x 3.46 in, 0.045-scale model)
+  T_wall: 300.0         # K
+  mass_nominal: 5.0     # kg, bookkeeping only (D_drag/m)
+  rb_D: 0.20            # fixed flat rear closure radius / D
+  rf_D: 0.03            # fixed cone/base corner fillet radius / D
+
+# Benchmark A: Wieting Run 31, Calspan 48-inch HST, undisturbed cylinder, planar 2-D.
+cylinder:
+  name: wieting_run31_M8
+  mach: 8.03
+  T_inf: 124.94         # K  (224.9 R)
+  p_inf: 854.95         # Pa (0.124 psia)
+  radius: 0.0381        # m  (1.5 in)
+  T_wall: 294.44        # K  (530 R)
+  Q0: 7.2105e+5          # W/m^2 (63.49 Btu/ft^2-s) stagnation reference used in the report
+  P0: 72190.0           # Pa (10.47 psia) stagnation-line pressure reference used in the report
