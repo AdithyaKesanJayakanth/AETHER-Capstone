@@ -1,0 +1,22 @@
+# NASA TM 100484 (Wieting 1987), Run 31, Calspan 48-inch HST, undisturbed flow over a 3-inch-diameter cylinder.
+# M = 8.03, Re = 1.468e6 per ft. p/P0 with P0 = 10.47 psia (= 7.219e4 Pa) the pitot (stagnation-line) pressure reference used in the report.
+# theta in degrees from the stagnation line; transcribed from the tabulated data page 'RUN 31'. Blank entries omitted.
+theta_deg,p_over_P0
+-79.641,0.125
+-50.993,0.437
+-23.109,0.873
+-16.711,0.931
+-7.162,1.014
+-4.775,1.000
+-2.387,1.000
+0.000,0.999
+2.387,0.999
+4.775,1.044
+7.162,1.026
+9.549,0.996
+19.385,0.883
+26.547,0.783
+33.709,0.689
+40.871,0.571
+48.033,0.457
+62.357,0.259

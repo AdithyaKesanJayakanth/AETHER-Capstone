@@ -1,0 +1,327 @@
+Fig. 47. Schlieren photograph of a Type 111 interference pattern (8' H l T , run
+         55, M = 6.47, 6 = lo", Re = 0.424 x 106/fl, Ax = 3.00 in, Ay = 4.45 in).
+
+                                      90
+                      .
+
+
+
+
+                      o
+
+
+
+
+     P/P
+              o
+                  2.
+
+
+
+                  O.
+                   --1 00.                 --50.          O.         50.     1 00.
+
+                                 Thefa,               degrees
+
+                                      a)     Pressure distribution
+
+
+
+
+                                                     (9        R55
+                                                               VSL
+                          .
+
+
+
+
+                                                          O.         50.      100.
+
+                                 Thefa,               degrees
+
+                                 b)   Heat transfer rate distributiQn
+
+
+
+Fig. 48.   Pressure           and heat transfer      rate distributions    on a cylinder   for a Type
+           III interference pattern (8' HTT, run 55, M -- 6.47,                             5 = 10 ° ,
+           Re = 0.424 x 106/ft, AX = 3.00 in, _y = 4.45 in).
+
+                                                     91
+Fig. 49. Schlieren photograph of a Type 111 interference pattern (8' HTT, run
+         57, M = 6.48, 6 = lo", Re = 0.405 x lo%, Ax = 3.00 in, Ay = 4.50 in).
+
+                                     92
+                                                            (9        R57
+                                                                      VSL
+                                  .
+
+
+
+
+                              .
+
+
+
+
+                 P/P
+                        o
+                              o
+
+
+
+
+                            O.
+                            -- 1 00.           -50.              O.         50.   100.
+
+                                       Theta,               degrees
+
+                                          a)   Pressure distribution
+
+
+
+
+                              .
+
+
+
+
+                            -- 1 00.           --50.             O.       50.     100.
+
+                                       Thefa,               degrees
+
+a
+                                      b) Heat transfer      rate distributio.n
+
+
+    Fig.   50.    Pressure and heat transfer rate distributions on a cylinder            for a Type
+                  III interference pattern (8' HTT, run 57, M -- 6.48,                     8 - 10 °,
+                  Re = 0.405 x 106/ft, Ax- 3.00 in, Ay = 4.50 in).
+
+                                                       93
+          ®    I      I     I        I   I   I         I   I   I   I    I     I          I   I    I
+               I      I     I        I   I   I         I   I   I   I    I     I          I   I    I
+I--
+I-
+.I-
+               _      I _                    I _           I PP_                         I   I    I
+               _      I _                    I _           I __                          I    I   I
+     I
+     II
+ I,._
+ 0
+ e=
+ E
+                                                                                  o°.l
+ ..,.i
+ E
+,=_
+               ____0_
+ 0                 eot°aoo°°o°°ol°
+               O0000000_OOOOO
+               _0__                                                     _0_
+ i             __0___                                                                    _
+ ,,Q              °°l°°°o°°°°°°ee
+               000000000000000
+ I--                                             III
+               _0_                           __                         _0_
+               O0000OO00000000
+           E
+          rr   _0__0_
+                                                                   94
+4.3.2     Mach      6.3   Data      from    the 48"         HST
+
+    The data at Mach 6.3 from the tests in the 48" HST are presented                                  in Figs. 51
+
+to 66.      Shock measurements              are given in Table 6. As can be observed                       in the
+
+schlieren      photographs,         the pressure loading on the cylinder was sufficient to
+
+produce        an    upward        displacement        of the        cylinder.      The      displacement       is
+
+equivalent       to a maximum          rotation of 2 degrees           as measured         from the schlieren
+
+photographs.           The measured             angle (0) is recorded            in Table 6.         The motion
+
+was permitted by the single bolt joint connecting                          the cylinder to the two support
+
+arms.      This connection is 2 inches from the cylinder center.
+
+    The aft end of the shock generator wedge and support system is visible in
+
+the schlieren         photographs.              The boundary          layer along the wedge             and the
+
+expansion          wave    off the trailing        edge      of the wedge          are also visible.         The
+
+expansion        wave intersects the displaced bow shock well past the sonic point,
+
+hence,      no interference         is expected      to propagate        to the instrumented          surface of
+
+the cylinder.         More       importantly,     the expansion         wave      does     not alter the    main
+
+interference        pattern.
+
+       The pressure       and heat transfer         rate distributions        are similar     to the Mach 6.5
+
+distributions;       however,       the pressure      and heat transfer           amplifications      are higher
+
+in some      cases.       The peak         pressure     amplification        is not obtained         in all cases
+
+because      of the large spacing           between        sensors,    gage failure,      and in some cases
+
+underscaling         of the expected        gage output.          The schlieren       photographs        indicate
+
+turbulent     flow in the shear          layer and along the cylinder              surface    in most      cases.
+
+        The jet, shown         in Fig. 55, is turned upward sufficiently             to graze the surface       of
+
+the cylinder        surface      near theta -- 0 degrees          rather than impinge          on the surface.
+
+This     pattern     occurred       when    the impinging         shock      intersected       the    bow shock
+
+0.002      inch below          the horizontal      centerline     (theta     - 0 degrees).         The resulting
+
+amplifications         (Fig. 56) are significantly           lower     than the amplifications          (Fig. 60)
+
+                                                      95
+that occur when the jet impingement      is closer to 90 degrees (Fig. 59).   The heat
+
+transfer rate due to the interaction in this case should be similar to a shear layer
+
+attachment.
+
+   We also see in Fig. 60 for the first time an increase in the heat transfer rate
+
+on the upper portion of the cylinder.        The schlieren   photograph   shows a flow
+
+disturbance   in this area.   Since the pressure distribution shows a similar trend,
+
+the flow appears to be undergoing first an expansion (decreasing          pressure) and
+
+then a compression     (increasing pressure).
+
+
+
+
+                                        96
+Y
+
+
+
+
+Fig. 51. Schlieren photograph of an undisturbed flow pattern (48" HST, run
+         32, M = 6.38, Re = 4.922 xlOS/ft).
+
+                                   97
+                                                   e,:.        R32
+                                                               VSL
+
+
+
+
+                                     I                               I      I
+                                   --50.                  O.         50.   100.
+
+                             Thefa,                 degrees
+
+                              a)   Pressure    distribution
+
+
+
+
+                                                   ®           R32
+                                                               VSL
+
+
+
+
+             q/q
+                    0
+
+
+
+
+                                                                             !
+                                                                           100.
+
+                             Theta,                 degrees
+
+                           b) Heat transfer        rate distribution
+                                                                                       r
+
+
+
+
+Fig.   52.    Pressure   and heat transfer   rate distributions on a cylinder    for
+              undisturbed flow (48" HST, run 32, M - 6.38, Re = 4.922 x 106/ft).
+
+                                              98
+                            ORIGINAL PAGE IS
+                            OF POOR QUALITY,
+
+
+
+
+Fig. 53. Schlieren photograph of an undisturbed flow pattern (48” HST, run
+         9, M = 6.34, Re = 4.103 x lO6lft).
+
+                                   99
+                                                                o              R9
+                                                                               VSL
+                       .2       -
+
+                       o0       B
+                                                                                                                °
+
+
+                       .8       "
+                                                         /                     \
+             P/Po      °6
+
+
+                       o4       m
+                                                                                    dX
+                                                                                      \
+                       .2       B                                                              \
+                                        e_
+                       .0                           I                                I
+                        -100.                    --50.                    O.         50.           100.
+
+                                    Thefa,                              degrees
+
+                                        a)       Pressure distribution
+
+
+
+
+                                                                   o           R9
+                                                                   m           VSL
+                      1 .2
+
+                      1 .0
+
+                        .8
+
+             q/qo       .6
+
+                        .4
+                                                 /                                        x
+                        .2                   /                                                 \
+                                --/
+                        .0      L
+                                    S
+
+                                                     I         ......                I               I
+                        m
+                             100.                --50.                    O.             50,       100.
+
+                                    Thei'a,                             degrees
+
+                              b) Heat transfer rate distribution
+
+
+Fig.   54.    Pressure   and heat transfer   rate distributions  on a cylinder                            for
+              undisturbed flow (48" HST, run 9, M -- 6.34, Re = 4.103 x 106/ft).
+
+                                                             100
+

@@ -1,0 +1,40 @@
+# NASA TM 100484 (Wieting 1987), Run 31, Calspan 48-inch HST, undisturbed flow over a 3-inch-diameter cylinder.
+# M = 8.03, Re = 1.468e6 per ft (Re_R = 1.835e5 on the 1.5-inch radius). Isothermal wall ~294.4 K (room temperature thin-film gages).
+# q/Q0 with Q0 = 63.49 Btu/ft^2-s (= 7.210e5 W/m^2) the Fay-Riddell stagnation-point reference used in the report.
+# theta in degrees measured from the stagnation line (negative = one side, positive = other side); transcribed from the tabulated data page 'RUN 31'.
+# Blank entries in the report (failed gages) are omitted.
+theta_deg,q_over_Q0
+-39.438,0.57
+-36.383,0.66
+-33.327,0.69
+-30.271,0.73
+-27.215,0.79
+-24.160,0.83
+-21.104,0.83
+-14.992,0.97
+-11.937,0.94
+-11.841,0.89
+-11.077,0.95
+-10.313,0.90
+-9.549,0.90
+-8.785,0.96
+-7.257,0.94
+-5.730,0.92
+-4.966,0.96
+-2.387,0.98
+-0.859,0.96
+-0.095,1.00
+0.668,0.96
+4.106,0.96
+7.162,0.88
+16.329,0.84
+19.385,0.88
+25.497,0.77
+28.552,0.72
+34.664,0.66
+37.720,0.66
+40.775,0.54
+43.831,0.51
+46.887,0.50
+49.943,0.43
+52.998,0.40

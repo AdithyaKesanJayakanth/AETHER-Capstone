@@ -1,0 +1,23 @@
+[project]
+name = "aether"
+version = "0.1.0"
+description = "Project AETHER: multi-objective shape study of a hypersonic re-entry capsule heat shield (axisymmetric laminar Navier-Stokes with SU2)"
+authors = [{ name = "Adithya Kesan Jayakanth", email = "adithya.kesan@icloud.com" }]
+requires-python = ">=3.13"
+dependencies = [
+  "gmsh==4.15.2",
+  "numpy>=2.2",
+  "scipy>=1.15",
+  "matplotlib>=3.10",
+  "pandas>=2.2",
+  "pyyaml>=6.0",
+  "meshio>=5.3",
+  "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.setuptools]
+packages = ["aether"]
