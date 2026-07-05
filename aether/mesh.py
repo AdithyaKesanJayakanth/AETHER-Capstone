@@ -101,16 +101,24 @@ def normal_distances(first_cell: float, ratio: float, h_cap: float,
 # --------------------------------------------------------------------------
 @dataclass
 class CapsuleMeshSpec:
-    level: str = "medium"        # coarse / medium / fine
-    # medium-level wall spacings [m]; scaled by the level factor
-    h_cap: float = 0.80e-3
-    h_shoulder: float = 0.30e-3
-    h_cone: float = 1.10e-3
-    h_corner: float = 0.20e-3
-    h_base: float = 0.80e-3
-    first_cell: float = 3.0e-6   # m, medium
-    growth: float = 1.15         # medium
-    h_normal_cap: float = 0.80e-3
+    """Mesh family of the capsule. The wall-tangential and shock-region
+    spacings are the same at every level (the resolution at which the
+    first-order SLAU2 solution is free of the stagnation-line instability,
+    docs/validation.md C.1); the levels coarse/medium/fine refine the
+    wall-normal boundary-layer resolution by a factor 1.5 per level
+    (first-cell height and growth exponent). refine_mode="all" scales every
+    spacing instead and is used only for the documented refinement tests."""
+    level: str = "coarse"        # coarse (base) / medium / fine
+    refine_mode: str = "bl"      # "bl": boundary layer only (production); "all": every spacing
+    # base wall spacings [m]
+    h_cap: float = 1.20e-3
+    h_shoulder: float = 0.45e-3
+    h_cone: float = 1.65e-3
+    h_corner: float = 0.30e-3
+    h_base: float = 1.20e-3
+    first_cell: float = 4.5e-6   # m, base level
+    growth: float = 1.22         # base level
+    h_normal_cap: float = 1.20e-3
     d_uniform_end_D: float = 0.45  # keep uniform normal spacing out to this many D (shock region)
     n_outer: int = 24            # stretched cells from d_uniform_end to the far boundary
     stretch_ratio: float = 1.15
@@ -120,16 +128,24 @@ class CapsuleMeshSpec:
     redistribute_max: float = 0.85  # how far the far-field spacing is relaxed toward uniform
     truncate_at_base: bool = False  # forebody + cone only: outlet plane normal to the cone at its end (base and wake excluded)
     axis_offset: float = 0.0        # [m] symmetry line placed at y = axis_offset instead of y = 0 (see docs/mesh.md)
+    wedge_layers: int = 0           # > 0: export as a 3-D wedge with this many layers (axisymmetry by symmetry planes)
+    wedge_deg: float = 3.0          # total wedge angle [deg]
+
+    @property
+    def bl_factor(self) -> float:
+        """Boundary-layer refinement factor (first cell, growth exponent)."""
+        return {"coarse": 1.0, "medium": 1.0 / 1.5, "fine": 1.0 / 2.25}[self.level]
 
     @property
     def factor(self) -> float:
-        return {"coarse": 1.5, "medium": 1.0, "fine": 1.0 / 1.5}[self.level]
+        """Factor applied to the tangential and shock-region spacings."""
+        return self.bl_factor if self.refine_mode == "all" else 1.0
 
     @property
     def level_growth(self) -> float:
         # growth ratio scales so that the number of cells across a fixed
-        # layer thickness scales by the same factor as the spacing
-        return 1.0 + (self.growth - 1.0) * self.factor
+        # layer thickness scales by the same factor as the first cell
+        return 1.0 + (self.growth - 1.0) * self.bl_factor
 
 
 def _wall_points_and_normals(prof: CapsuleProfile, spec: CapsuleMeshSpec):
@@ -266,7 +282,7 @@ def capsule_mesh(params: CapsuleParams, spec: CapsuleMeshSpec) -> "StructuredMes
     s, xy, nrm = _wall_points_and_normals(prof, spec)
     ni = len(s)
     d_far_ref = spec.d_far_nose_D * D
-    d, i_outer = normal_distances(spec.first_cell * f, spec.level_growth,
+    d, i_outer = normal_distances(spec.first_cell * spec.bl_factor, spec.level_growth,
                                   spec.h_normal_cap * f, spec.d_uniform_end_D * D,
                                   spec.stretch_ratio, int(round(spec.n_outer / f)),
                                   d_far_ref)
@@ -305,9 +321,10 @@ def capsule_mesh(params: CapsuleParams, spec: CapsuleMeshSpec) -> "StructuredMes
         markers = {"wall": "j0", "axis": "i0+iN", "farfield": "jN"}
     X[:, :, 1] = np.maximum(X[:, :, 1], spec.axis_offset)
     mesh = StructuredMesh(X, markers=markers,
-                          info={"kind": "capsule", "level": spec.level, "ni": ni, "nj": nj,
+                          info={"kind": "capsule", "level": spec.level, "refine_mode": spec.refine_mode, "ni": ni, "nj": nj,
                                 "truncate_at_base": spec.truncate_at_base, "axis_offset": spec.axis_offset,
-                                "first_cell_m": spec.first_cell * f, "growth": spec.level_growth,
+                                "first_cell_m": spec.first_cell * spec.bl_factor, "growth": spec.level_growth,
+                                "h_normal_shock_m": spec.h_normal_cap * f, "h_wall_cap_m": spec.h_cap * f,
                                 "d_far_nose_D": spec.d_far_nose_D, "d_far_wake_D": spec.d_far_wake_D,
                                 "s_wall": s.tolist(), "params": asdict(params),
                                 "shield_arc_length_m": prof.s_P2,
@@ -321,13 +338,17 @@ def capsule_mesh(params: CapsuleParams, spec: CapsuleMeshSpec) -> "StructuredMes
 # --------------------------------------------------------------------------
 @dataclass
 class CylinderMeshSpec:
-    level: str = "medium"
+    """Same convention as CapsuleMeshSpec: levels refine the boundary layer
+    (first cell, growth) by 1.5 per level; tangential and shock-region
+    spacings stay at the base values unless refine_mode == "all"."""
+    level: str = "coarse"
+    refine_mode: str = "bl"
     radius: float = 0.0381
-    n_theta: int = 140           # medium, over 0..theta_max
+    n_theta: int = 93            # base, over 0..theta_max (1.13 deg)
     theta_max_deg: float = 105.0 # outlet placed past the 90 deg station used for comparisons
-    first_cell: float = 1.0e-6   # m, medium
-    growth: float = 1.12
-    h_normal_cap: float = 0.25e-3
+    first_cell: float = 1.5e-6   # m, base level
+    growth: float = 1.18
+    h_normal_cap: float = 0.375e-3
     d_uniform_end_R: float = 0.7  # uniform normal spacing out to this many R (covers the shock at ~0.42 R)
     n_outer: int = 20
     stretch_ratio: float = 1.15
@@ -335,12 +356,16 @@ class CylinderMeshSpec:
     axis_offset: float = 0.0     # [m] symmetry line at y = axis_offset (used only for the axisymmetric sphere test)
 
     @property
+    def bl_factor(self):
+        return {"coarse": 1.0, "medium": 1.0 / 1.5, "fine": 1.0 / 2.25}[self.level]
+
+    @property
     def factor(self):
-        return {"coarse": 1.5, "medium": 1.0, "fine": 1.0 / 1.5}[self.level]
+        return self.bl_factor if self.refine_mode == "all" else 1.0
 
     @property
     def level_growth(self):
-        return 1.0 + (self.growth - 1.0) * self.factor
+        return 1.0 + (self.growth - 1.0) * self.bl_factor
 
 
 def cylinder_mesh(spec: CylinderMeshSpec) -> "StructuredMesh":
@@ -348,7 +373,7 @@ def cylinder_mesh(spec: CylinderMeshSpec) -> "StructuredMesh":
     R = spec.radius
     ni = int(round(spec.n_theta / f)) + 1
     theta = np.linspace(0.0, math.radians(spec.theta_max_deg), ni)     # 0 = stagnation line
-    d, i_outer = normal_distances(spec.first_cell * f, spec.level_growth,
+    d, i_outer = normal_distances(spec.first_cell * spec.bl_factor, spec.level_growth,
                                   spec.h_normal_cap * f, spec.d_uniform_end_R * R,
                                   spec.stretch_ratio, int(round(spec.n_outer / f)),
                                   (spec.r_far_R - 1.0) * R)
@@ -359,8 +384,9 @@ def cylinder_mesh(spec: CylinderMeshSpec) -> "StructuredMesh":
     X[:, :, 1] = np.outer(np.sin(theta), r)
     X[0, :, 1] = spec.axis_offset
     return StructuredMesh(X, markers={"wall": "j0", "symmetry": "i0", "outflow": "iN", "farfield": "jN"},
-                          info={"kind": "cylinder", "level": spec.level, "ni": ni, "nj": nj,
-                                "first_cell_m": spec.first_cell * f, "growth": spec.level_growth,
+                          info={"kind": "cylinder", "level": spec.level, "refine_mode": spec.refine_mode, "ni": ni, "nj": nj,
+                                "first_cell_m": spec.first_cell * spec.bl_factor, "growth": spec.level_growth,
+                                "h_normal_shock_m": spec.h_normal_cap * f, "dtheta_deg": spec.theta_max_deg / (ni - 1),
                                 "radius": R, "r_far_R": spec.r_far_R,
                                 "theta_deg": np.degrees(theta).tolist()})
 
@@ -475,3 +501,122 @@ class StructuredMesh:
         fig.tight_layout()
         fig.savefig(path, dpi=160)
         plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# Thin-wedge 3-D export (axisymmetry by symmetry planes instead of source terms)
+# --------------------------------------------------------------------------
+def write_su2_wedge(mesh: "StructuredMesh", path: str, n_layers: int = 2, wedge_deg: float = 3.0) -> dict:
+    """Revolve the 2-D structured mesh about the x axis into a wedge of
+    `wedge_deg` degrees with `n_layers` layers of cells, bounded by two
+    symmetry planes. Cells touching the axis become prisms, all others
+    hexahedra; the nodes on the axis are shared by all layers. Markers:
+    wall, farfield, outflow (if present) as quads/triangles, symmetry_left
+    (plane z = 0) and symmetry_right. Returns element counts.
+
+    This is the approach of SU2's own navierstokes/sphere test case: with
+    planes of symmetry the axisymmetric 1/r source terms are not needed."""
+    X = mesh.X
+    ni, nj = mesh.ni, mesh.nj
+    phi = np.radians(np.linspace(0.0, wedge_deg, n_layers + 1))
+    on_axis = np.abs(X[:, :, 1]) < 1e-14
+    # node numbering: axis nodes once; others per layer
+    ids = -np.ones((ni, nj, n_layers + 1), dtype=np.int64)
+    pts = []
+    for i in range(ni):
+        for j in range(nj):
+            if on_axis[i, j]:
+                k = len(pts); pts.append((X[i, j, 0], 0.0, 0.0)); ids[i, j, :] = k
+            else:
+                for L in range(n_layers + 1):
+                    k = len(pts); pts.append((X[i, j, 0], X[i, j, 1] * math.cos(phi[L]), X[i, j, 1] * math.sin(phi[L])))
+                    ids[i, j, L] = k
+    elems = []   # (vtk_type, nodes...)
+    for j in range(nj - 1):
+        for i in range(ni - 1):
+            c = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)]   # CCW in the (x, y) plane
+            ax = [on_axis[a] for a in c]
+            for L in range(n_layers):
+                if not any(ax):
+                    # hexahedron: bottom face at layer L (CCW seen from +z... SU2 corrects orientation), top at L+1
+                    elems.append((12, ids[c[0]][L], ids[c[1]][L], ids[c[2]][L], ids[c[3]][L],
+                                  ids[c[0]][L + 1], ids[c[1]][L + 1], ids[c[2]][L + 1], ids[c[3]][L + 1]))
+                else:
+                    # exactly two consecutive corners on the axis -> prism
+                    axc = [a for a, f in zip(c, ax) if f]
+                    off = [a for a, f in zip(c, ax) if not f]
+                    if len(axc) != 2 or len(off) != 2:
+                        raise ValueError("unexpected axis cell topology")
+                    # order so that off-axis nodes are paired with their axial neighbours
+                    # triangle 1: axis node A0, off node O0 at layer L, O0 at layer L+1
+                    # triangle 2: axis node A1, off node O1 at layer L, O1 at layer L+1
+                    # pair axis node with the off node sharing the same j (same x along the axis)
+                    def pair(a):
+                        return min(off, key=lambda o: abs(X[o][0] - X[a][0]))
+                    A0, A1 = axc
+                    O0, O1 = pair(A0), pair(A1)
+                    if O0 == O1:
+                        O0, O1 = off
+                    elems.append((13, ids[A0][0], ids[O0][L], ids[O0][L + 1],
+                                  ids[A1][0], ids[O1][L], ids[O1][L + 1]))
+    # boundary elements
+    def side_faces(sel):  # sel yields (i, j) node pairs along a 2-D boundary line -> quads/triangles across layers
+        out = []
+        for (a, b) in sel:
+            for L in range(n_layers):
+                nodes = []
+                if on_axis[a] and on_axis[b]:
+                    continue
+                if on_axis[a]:
+                    out.append((5, ids[a][0], ids[b][L], ids[b][L + 1]))
+                elif on_axis[b]:
+                    out.append((5, ids[a][L], ids[b][L], ids[a][L + 1])) if False else out.append((5, ids[a][L], ids[b][0], ids[a][L + 1]))
+                else:
+                    out.append((9, ids[a][L], ids[b][L], ids[b][L + 1], ids[a][L + 1]))
+        return out
+    markers = {}
+    for name, where in mesh.markers.items():
+        if name == "axis":
+            continue
+        pairs = []
+        for part in where.split("+"):
+            if part == "j0":
+                pairs += [((i, 0), (i + 1, 0)) for i in range(ni - 1)]
+            elif part == "jN":
+                pairs += [((i, nj - 1), (i + 1, nj - 1)) for i in range(ni - 1)]
+            elif part == "i0":
+                pairs += [((0, j), (0, j + 1)) for j in range(nj - 1)]
+            elif part == "iN":
+                pairs += [((ni - 1, j), (ni - 1, j + 1)) for j in range(nj - 1)]
+        markers[name] = side_faces(pairs)
+    for name, L in (("symmetry_left", 0), ("symmetry_right", n_layers)):
+        faces = []
+        for j in range(nj - 1):
+            for i in range(ni - 1):
+                c = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)]
+                nodes = [ids[a][L] for a in c]
+                uniq = []
+                for n in nodes:
+                    if n not in uniq:
+                        uniq.append(n)
+                if len(uniq) == 4:
+                    faces.append((9, *uniq))
+                elif len(uniq) == 3:
+                    faces.append((5, *uniq))
+        markers[name] = faces
+    with open(path, "w") as fh:
+        fh.write("NDIME= 3\n")
+        fh.write(f"NELEM= {len(elems)}\n")
+        for k, e in enumerate(elems):
+            fh.write(" ".join(str(v) for v in e) + f" {k}\n")
+        fh.write(f"NPOIN= {len(pts)}\n")
+        for k, p in enumerate(pts):
+            fh.write(f"{p[0]:.12e} {p[1]:.12e} {p[2]:.12e} {k}\n")
+        fh.write(f"NMARK= {len(markers)}\n")
+        for name, faces in markers.items():
+            fh.write(f"MARKER_TAG= {name}\nMARKER_ELEMS= {len(faces)}\n")
+            for f in faces:
+                fh.write(" ".join(str(v) for v in f) + "\n")
+    n_hex = sum(1 for e in elems if e[0] == 12); n_pri = len(elems) - n_hex
+    return {"n_points": len(pts), "n_elems": len(elems), "n_hexa": n_hex, "n_prism": n_pri,
+            "markers": {k: len(v) for k, v in markers.items()}, "n_layers": n_layers, "wedge_deg": wedge_deg}

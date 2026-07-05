@@ -44,9 +44,8 @@ def test_capsule_mesh_levels_are_nested_and_valid():
         # wall nodes on the axis at both ends
         assert m.X[0, 0, 1] == 0.0 and m.X[-1, 0, 1] == 0.0
         assert np.all(m.X[:, :, 1] >= 0.0)
-    # refinement ratio 1.5 per direction -> cell count ratio about 2.25
-    assert 1.9 < counts[1] / counts[0] < 2.6
-    assert 1.9 < counts[2] / counts[1] < 2.6
+    # boundary-layer refinement only: cell counts grow modestly, first cell by 1/1.5
+    assert counts[0] < counts[1] < counts[2]
 
 
 def test_capsule_mesh_first_cell_scales_with_level():
@@ -54,6 +53,9 @@ def test_capsule_mesh_first_cell_scales_with_level():
     h = {lvl: capsule_mesh(p, CapsuleMeshSpec(level=lvl)).quality()["first_cell_height_max"] for lvl in ("coarse", "medium", "fine")}
     assert h["coarse"] == pytest.approx(1.5 * h["medium"], rel=1e-6)
     assert h["fine"] == pytest.approx(h["medium"] / 1.5, rel=1e-6)
+    # tangential/shock spacing unchanged across levels in the production family
+    from aether.mesh import capsule_mesh as cm
+    assert cm(p, CapsuleMeshSpec(level="coarse")).ni == cm(p, CapsuleMeshSpec(level="fine")).ni
 
 
 def test_cylinder_mesh_orthogonal():

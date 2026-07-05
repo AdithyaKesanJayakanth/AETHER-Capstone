@@ -110,6 +110,21 @@ def freestream_from_Tinf(name: str, mach: float, T_inf: float, Re_ref: float,
     return _freestream(name, mach, T_inf, Re_ref, ref_length, T_wall)
 
 
+def freestream_from_pT(name: str, mach: float, p_inf: float, T_inf: float,
+                       ref_length: float, T_wall: float) -> Freestream:
+    """Condition defined directly by static pressure and temperature (what
+    the solver is given); the Reynolds number follows from Sutherland."""
+    rho = p_inf / (R_AIR * T_inf)
+    U = mach * speed_of_sound(T_inf)
+    mu = sutherland(T_inf)
+    Re_per_m = rho * U / mu
+    T0 = T_inf * total_temperature_ratio(mach)
+    p0 = p_inf * total_temperature_ratio(mach) ** (GAMMA / (GAMMA - 1.0))
+    p_t2 = p_inf * pitot_pressure_ratio(mach)
+    return Freestream(name, mach, T_inf, p_inf, rho, U, mu, T0, p0, p_t2,
+                      Re_per_m, ref_length, Re_per_m * ref_length, T_wall, 0.5 * rho * U * U)
+
+
 def _freestream(name, mach, T_inf, Re_ref, ref_length, T_wall) -> Freestream:
     U = mach * speed_of_sound(T_inf)
     mu = sutherland(T_inf)

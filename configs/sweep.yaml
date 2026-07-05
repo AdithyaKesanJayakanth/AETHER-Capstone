@@ -1,0 +1,36 @@
+# Design-space sweep for Project AETHER. Baseline = clean Apollo 0.045-scale geometry.
+# Rn_D nose radius / D, Rs_D shoulder radius / D, theta_c rear-body cone half-angle [deg].
+# Phase 1: one-variable perturbations about the baseline (nose and cone first, then shoulder).
+# Phase 2: combinations toward the promising corner, chosen after Phase 1 (see docs/logbook.md).
+mesh_level: coarse   # base resolution of the boundary-layer refinement family (docs/mesh.md)
+baseline:
+  id: B00
+  Rn_D: 1.20231
+  Rs_D: 0.05058
+  theta_c: 33.0
+cases:
+  # ---- nose radius sweep (shoulder and cone fixed at baseline)
+  - {id: N08, Rn_D: 0.80, Rs_D: 0.05058, theta_c: 33.0, phase: 1, group: nose}
+  - {id: N10, Rn_D: 1.00, Rs_D: 0.05058, theta_c: 33.0, phase: 1, group: nose}
+  - {id: N14, Rn_D: 1.40, Rs_D: 0.05058, theta_c: 33.0, phase: 1, group: nose}
+  - {id: N16, Rn_D: 1.60, Rs_D: 0.05058, theta_c: 33.0, phase: 1, group: nose}
+  - {id: N06, Rn_D: 0.60, Rs_D: 0.05058, theta_c: 33.0, phase: 1, group: nose}
+  # ---- rear-body cone angle sweep
+  - {id: C25, Rn_D: 1.20231, Rs_D: 0.05058, theta_c: 25.0, phase: 1, group: cone}
+  - {id: C29, Rn_D: 1.20231, Rs_D: 0.05058, theta_c: 29.0, phase: 1, group: cone}
+  - {id: C37, Rn_D: 1.20231, Rs_D: 0.05058, theta_c: 37.0, phase: 1, group: cone}
+  - {id: C41, Rn_D: 1.20231, Rs_D: 0.05058, theta_c: 41.0, phase: 1, group: cone}
+  # ---- shoulder radius sweep
+  - {id: S03, Rn_D: 1.20231, Rs_D: 0.030, theta_c: 33.0, phase: 1, group: shoulder}
+  - {id: S08, Rn_D: 1.20231, Rs_D: 0.080, theta_c: 33.0, phase: 1, group: shoulder}
+  - {id: S12, Rn_D: 1.20231, Rs_D: 0.120, theta_c: 33.0, phase: 1, group: shoulder}
+  - {id: S18, Rn_D: 1.20231, Rs_D: 0.180, theta_c: 33.0, phase: 1, group: shoulder}
+  # ---- deliberately invalid shapes (must be rejected by the geometry rules and recorded)
+  - {id: X01, Rn_D: 0.45, Rs_D: 0.05058, theta_c: 33.0, phase: 1, group: invalid}
+  - {id: X02, Rn_D: 1.20231, Rs_D: 0.45, theta_c: 33.0, phase: 1, group: invalid}
+  # ---- phase 2 combinations (filled after phase 1; placeholders are run only if 'enabled')
+  - {id: K01, Rn_D: 1.60, Rs_D: 0.120, theta_c: 33.0, phase: 2, group: combo, enabled: true}
+  - {id: K02, Rn_D: 1.60, Rs_D: 0.080, theta_c: 25.0, phase: 2, group: combo, enabled: true}
+  - {id: K03, Rn_D: 1.00, Rs_D: 0.120, theta_c: 33.0, phase: 2, group: combo, enabled: true}
+  - {id: K04, Rn_D: 1.40, Rs_D: 0.120, theta_c: 41.0, phase: 2, group: combo, enabled: true}
+  - {id: K05, Rn_D: 1.60, Rs_D: 0.180, theta_c: 29.0, phase: 2, group: combo, enabled: true}
