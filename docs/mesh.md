@@ -14,28 +14,28 @@ All meshes are single-block, body-fitted structured quadrilateral grids written 
 
 ## Spacing rules and refinement family
 
-| Quantity | Capsule (base) | Cylinder (base) |
+| Quantity | Capsule (coarse = base) | Cylinder (coarse = base) |
 |---|---|---|
-| First cell height at the wall | 4.5 µm | 1.5 µm |
-| Normal growth ratio in the boundary-layer block | 1.22 | 1.18 |
-| Uniform normal spacing through the shock region | 1.2 mm out to 0.45 D | 0.375 mm out to 0.7 R |
+| First cell height at the wall | 3.0 µm | 1.0 µm |
+| Normal growth ratio in the boundary-layer block | 1.15 | 1.12 |
+| Uniform normal spacing through the shock region | 0.8 mm out to 0.45 D | 0.25 mm out to 0.7 R |
 | Stretched cells to the far boundary | 24 (ratio ≈ 1.15) | 20 |
-| Wall spacing: nose cap / shoulder / cone | 1.2 / 0.45 / 1.65 mm | 1.13° (0.75 mm) |
-| Cells (baseline geometry) | 22 035 | 10 974 |
+| Wall spacing: nose cap / shoulder / cone | 0.8 / 0.3 / 1.1 mm | 0.75° (0.5 mm) |
+| Cells (baseline geometry) | 45 552 / 101 616 / 228 636 | 23 380 / 52 290 / 117 180 |
 
-The estimated stagnation-region thermal layer is 0.4 mm thick on the capsule and 0.12 mm on the cylinder (Fay–Riddell velocity gradient); the base first-cell heights place 17–20 cells inside it.
+The estimated stagnation-region thermal layer is 0.4 mm thick on the capsule and 0.12 mm on the cylinder (Fay–Riddell velocity gradient); the base first-cell heights place about 25 cells inside it.
 
-**Refinement family (coarse / medium / fine).** The levels refine the *wall-normal boundary-layer resolution* only: the first-cell height is divided by 1.5 per level (4.5 → 3.0 → 2.0 µm on the capsule, 1.5 → 1.0 → 0.67 µm on the cylinder) and the growth ratio is reduced so that the number of cells across a fixed layer thickness scales by the same factor (1.22 → 1.15 → 1.10). The wall-tangential and shock-region spacings are identical at every level. This is a nested family with refinement ratio r = 1.5 for the quantity that governs the wall heat flux (the wall-normal temperature gradient), and it is what the Richardson/GCI analysis in `aether/convergence.py` is applied to.
+**Refinement family (coarse / medium / fine).** Every spacing is divided by 1.5 per level (first cell 3.0 → 2.0 → 1.33 µm on the capsule; the growth ratio is reduced so that the number of cells across a fixed layer thickness scales by the same factor: 1.15 → 1.10 → 1.067); the cell count grows by about 2.25 per level. This is a nested family with refinement ratio r = 1.5, as the Richardson/GCI analysis in `aether/convergence.py` assumes. The design sweep is run on the coarse (base) level; the baseline and the finalists are run on all three.
 
-**Why the shock-region spacing is held fixed.** Refining the tangential and shock-normal spacings by 1.5 (`refine_mode = "all"`) re-triggers the stagnation-line instability of the first-order upwind solution — a heating spike at the stagnation node of +70 % on the planar cylinder and a stagnation pressure 15–30 % above the pitot value on the axisymmetric capsule — with every flux function available in SU2 (docs/validation.md C.1). The base spacing (1.2 mm on the capsule, 0.375 mm on the cylinder, aspect ratio ≈ 1–2 at the shock) is the finest at which the solution is stationary, free of the anomaly and in agreement with the measured pressure and heating distributions. The influence of the shock-region spacing on the objectives is therefore assessed separately, by comparison of the base spacing with a coarser one (1.6 mm) at the base boundary-layer resolution, and reported as an additional uncertainty rather than folded into the Richardson estimate.
+**Start-up procedure.** The first-order SLAU2 solution of this problem has two steady branches on every level tested: the physical one and a carbuncle branch (stagnation pressure above the pitot value, heating spike at the stagnation line). Which branch a run converges to depends on the start-up transient, not on the mesh quality: a coarser 1.2 mm family that is clean from a uniform free-stream start on one far-field stretching locks into the carbuncle branch on another. The production procedure therefore establishes the field with a Roe flux and a large entropy fix (carbuncle-free, strongly convergent) and restarts SLAU2 from it (docs/validation.md A.2); with this procedure the solution is on the physical branch at every level of the family.
 
 ## Quality metrics (written to `mesh_report.json` of every case)
 
-Signed cell area (no inverted cell allowed), minimum and maximum interior angle, maximum aspect ratio, first-cell height range, cell and point counts. Baseline base level: minimum angle 65°, maximum angle 116°, maximum aspect ratio ≈ 270 (boundary-layer cells; expected and intended), no inverted cells. Every sweep case must pass the same checks before the solver is called; a failing mesh is recorded as an invalid case.
+Signed cell area (no inverted cell allowed), minimum and maximum interior angle, maximum aspect ratio, first-cell height range, cell and point counts. Baseline coarse level: minimum angle 45°, maximum angle 135°, maximum aspect ratio ≈ 270 (boundary-layer cells; expected and intended), no inverted cells. Every sweep case must pass the same checks before the solver is called; a failing mesh is recorded as an invalid case.
 
 ## Far-boundary check
 
-`cases/domain_check/base_far` repeats the baseline at the base level with the far boundary moved from 2.0 D to 3.0 D at the nose and from 4.5 D to 7.0 D downstream. The change in C_D and q''_max is reported in docs/validation.md and must be smaller than the mesh uncertainty for the chosen domain to be accepted.
+`cases/domain_check/base_far` repeats the baseline at the coarse level with the far boundary moved from 2.0 D to 3.0 D at the nose and from 4.5 D to 7.0 D downstream. The change in C_D and q''_max is reported in docs/validation.md and must be smaller than the mesh uncertainty for the chosen domain to be accepted.
 
 ## Gmsh
 

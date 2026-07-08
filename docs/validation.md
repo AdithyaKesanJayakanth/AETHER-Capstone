@@ -25,9 +25,11 @@ All runs: first-order, implicit Euler, from a uniform free stream.
 | MSW, SW (flux-vector splitting) | diverge | — | rejected |
 | AUSM+M | aborts at start | — | rejected |
 
-The residual plateau of SLAU2 at a strong captured shock is the known behaviour of upwind schemes with limiters/pressure sensors; convergence is therefore judged on the stationarity of the integrated quantities (drag, wall heat flux), with the residual drop recorded. On the coarse cylinder the second-order stage changes the stagnation heat flux from 546 to 535 kW/m² (−2 %) and the drag coefficient from 0.632 to 0.628 (−0.6 %).
+On the coarsest cylinder mesh the second-order stage changes the stagnation heat flux from 546 to 535 kW/m² (−2 %) and the drag coefficient from 0.632 to 0.628 (−0.6 %).
 
-**CFL.** SU2's adaptive controller started below 1 collapses to its floor during the start-up transient and then crawls; a fixed CFL of 3 from a uniform free stream diverges. Adopted: adaptive control between 1 and 50 (factor 0.5 down, 1.3 up) for the first-order stage, which reaches CFL 50 once the shock is established.
+**Two steady branches and the start-up procedure (4–7 July).** Refining the mesh from a uniform free-stream start, the first-order SLAU2 solution locked into a carbuncle state on every body (C.1). Two observations resolved this: (i) restarting a carbuncle-free Roe-fix solution with the fix switched off (a source change that scales the fix by a pressure-jump sensor, kept in `tools/aether_su2_patches.diff`) stayed on the clean branch and re-converged to 10⁻¹⁰ — the clean solution is a stable steady state of the operator; (ii) restarting SLAU2 from the converged Roe-fix field converged to the clean branch on the refined cylinder (residual 10⁻⁸·⁷, monotone heating 502 kW/m²) and on the refined capsule (stagnation pressure 25.3 kPa, flat heating 98 → 90 kW/m², shoulder peak 113), where free-stream starts had failed. The Roe-fix solution itself is not usable for heating: its wall-node temperature sits 20–50 K above the imposed value and its heat flux is ×3 (the Roe linearisation with the fix dissipates the entropy wave across the strong density gradient of the boundary layer), which is why SLAU2 is restarted from it. Production procedure: stage 1 Roe (fix 0.3, CFL 0.5 → 10), stage 2 SLAU2 first order (CFL 1 → 30), stage 3 SLAU2 MUSCL for the planar benchmark only.
+
+**CFL.** SU2's adaptive controller started below 1 collapses to its floor during the start-up transient and then crawls; a fixed CFL of 3 from a uniform free stream diverges; a Roe start-up with the cap at 30 can misbehave on the coarsest capsule mesh (stagnation pressure 17 kPa) while a cap of 10 converges. Adopted: adaptive control (factor 0.5 down, 1.2 up), 0.5 → 10 in stage 1 and 1 → 30 in stage 2.
 
 ### A.3 Axisymmetric near-axis treatment (SU2 defect and patch)
 
@@ -72,6 +74,26 @@ Configuration: main condition (docs/conditions.md), baseline geometry, first-ord
 
 ## C. Mesh convergence and domain check
 
-Three nested meshes (r = 1.5), Richardson extrapolation and GCI (Celik et al. 2008) separately for C_D and q''_max,shield; far-boundary check at 3.0 D / 7.0 D. The acceptance tolerance used in the trade-space analysis is the GCI of the medium mesh for each objective: two designs are only called different if they differ by more than it.
+### C.1 Refinement of the shock region (exploratory, 4 July 2026)
+
+Refining every spacing by 1.5 from the base level re-triggers the stagnation-line instability of the first-order solution, independently of the flux function:
+
+| Case (first order, patched solver) | Result at the stagnation line |
+|---|---|
+| Cylinder, all spacings ÷ 1.5, SLAU2 (two stages) | heat flux 932 kW/m² at θ = 0 against 460–470 at 9–18°, residual plateau 10⁻³·⁸ |
+| Cylinder, tangential ÷ 1.5 only, SLAU2 | 754 kW/m² at θ = 0 decaying to 609 at 6° (bump of +24 %) |
+| Cylinder, boundary layer ÷ 1.5 only, SLAU2 | 546 → 532 → 521 → 514 … kW/m² (smooth, Lees-like) |
+| Cylinder, all spacings ÷ 1.5, AUSM+-up2 (Kp 0.25) | 1134 kW/m² at θ = 0, 464 at 9° |
+| Cylinder, same, AUSM+-up2 with Kp = 1.0 and 3.0 | diverge |
+| Capsule, all spacings ÷ 1.5, SLAU2 | stagnation pressure 29–32 kPa (pitot 25.5), heating spike 360–560 kW/m² |
+| Capsule, same, Roe with entropy fix 0.05 | stagnation pressure 51 kPa |
+| Capsule, boundary layer ÷ 1.5 only, SLAU2 | stagnation pressure 25.4 kPa; near-axis bump +40 % within s/R < 0.05; plateau (s/R = 0.3) 93 vs 94 kW/m², shoulder peak 113 vs 115 |
+| Capsule, boundary layer ÷ 2.25 only, SLAU2 (gentle start) | converged; see results table |
+
+The boundary-layer-only family was adopted provisionally on 5 July, then abandoned on 7 July when the base-level capsule itself locked into the carbuncle branch after a change of the far-field stretching only: the branch selection is a property of the start-up transient, not of the mesh (A.2). With the Roe-fix start-up the fully refined levels converge to the clean branch (cylinder 502 and 520 kW/m² at ÷1.5 and ÷2.25; capsule 25.3 kPa, 98 kW/m²), and the production family refines every spacing (docs/mesh.md). The coarsest 1.2 mm capsule mesh still locks into the carbuncle branch even with the start-up procedure and is not used; the family starts at 0.8 mm.
+
+### C.2 Boundary-layer refinement, Richardson extrapolation and domain checks
+
+Three nested levels (r = 1.5 in every spacing), Richardson extrapolation and GCI (Celik et al. 2008) separately for C_D and the heating quantities; far-boundary check at 3.0 D / 7.0 D. The acceptance tolerance used in the trade-space analysis is the larger of the coarse-level GCI and the far-boundary sensitivity for each objective: two designs are only called different if they differ by more than it.
 
 *Results: filled from results/results.csv and results/uncertainty.json.*

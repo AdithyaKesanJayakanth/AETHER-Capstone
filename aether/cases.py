@@ -60,7 +60,7 @@ def build_cylinder_case(case_dir: str, level: str = "medium", spec_overrides: Op
     mesh.plot(os.path.join(case_dir, "mesh_zoom.png"), zoom=(-0.06, 0.0, 0.0, 0.06), title=f"cylinder {level} (near wall)")
     settings = CaseSettings(kind="cylinder", mach=c["mach"], p_inf=c["p_inf"], T_inf=c["T_inf"],
                             T_wall=c["T_wall"], ref_length=c["radius"], ref_area=2.0 * c["radius"],
-                            **(settings_overrides or {}))
+                            **{"n_stages": 3, **(settings_overrides or {})})
     write_stage_configs(settings, case_dir)
     meta = {"kind": "cylinder", "level": level, "conditions": c, "mesh_spec": asdict(spec),
             "settings": asdict(settings), "mesh_quality": rep["quality"]}
@@ -108,11 +108,11 @@ def build_capsule_case(case_dir: str, params: CapsuleParams, level: str = "mediu
     if wedge:
         kind = "capsule_wedge"
         A_su2 = A_ref * spec.wedge_deg / 360.0        # the wedge carries this fraction of the body
-        defaults = {"run_stage2": True, "s1_iter": 4000}
+        defaults = {"n_stages": 3}
     else:
         kind = "capsule_truncated" if spec.truncate_at_base else "capsule"
         A_su2 = A_ref
-        defaults = {"run_stage2": False, "s1_iter": 4000}
+        defaults = {"n_stages": 2}
     settings = CaseSettings(kind=kind, mach=fs.mach, p_inf=fs.p_inf, T_inf=fs.T_inf,
                             T_wall=fs.T_wall, ref_length=D, ref_area=A_su2,
                             **{**defaults, **(settings_overrides or {})})

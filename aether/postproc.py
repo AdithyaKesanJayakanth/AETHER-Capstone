@@ -185,7 +185,8 @@ def postprocess_case(case_dir: str, stage: int = 0) -> dict:
     with open(os.path.join(case_dir, "case.json")) as fh:
         meta = json.load(fh)
     if stage == 0:
-        stage = 2 if os.path.exists(os.path.join(case_dir, "history_stage2.csv")) else 1
+        stage = max(int(f[len("history_stage"):-4]) for f in os.listdir(case_dir)
+                    if f.startswith("history_stage") and f.endswith(".csv"))
     kind = meta["kind"]
     out = {"case_dir": case_dir, "kind": kind, "level": meta["level"], "case_id": meta.get("case_id", ""),
            "group": meta.get("group", ""), "phase": meta.get("phase", 0),
@@ -266,13 +267,20 @@ def postprocess_case(case_dir: str, stage: int = 0) -> dict:
                     "volume_m3": meta["geometry"]["volume_m3"]})
     out["n_cells"] = meta["mesh_quality"]["n_cells"]
     out["analysis_stage"] = stage
-    out["convective_order"] = 2 if stage == 2 else 1
+    out["convective_order"] = 2 if stage >= 3 else 1
+    out["scheme"] = {1: "ROE+fix0.3 (start-up)", 2: "SLAU2 1st order", 3: "SLAU2 MUSCL"}.get(stage, "")
     chg = out.get("q_max_change_last_window")
     if chg is not None and chg > 2e-3:
         out["converged"] = False
     out["status"] = "converged" if out.get("converged") else "not_converged"
     if out.get("diverged"):
         out["status"] = "diverged"
+    with open(os.path.join(case_dir, f"summary_stage{stage}.json"), "w") as fh:
+        json.dump(out, fh, indent=2)
     with open(os.path.join(case_dir, "summary.json"), "w") as fh:
         json.dump(out, fh, indent=2)
+    if stage == 3 and os.path.exists(os.path.join(case_dir, "history_stage2.csv")) and not os.path.exists(os.path.join(case_dir, "summary_stage2.json")):
+        postprocess_case(case_dir, stage=2)   # first-order result of the same case, for the order comparison
+        with open(os.path.join(case_dir, "summary.json"), "w") as fh:
+            json.dump(out, fh, indent=2)
     return out

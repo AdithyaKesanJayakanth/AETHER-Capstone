@@ -101,24 +101,24 @@ def normal_distances(first_cell: float, ratio: float, h_cap: float,
 # --------------------------------------------------------------------------
 @dataclass
 class CapsuleMeshSpec:
-    """Mesh family of the capsule. The wall-tangential and shock-region
-    spacings are the same at every level (the resolution at which the
-    first-order SLAU2 solution is free of the stagnation-line instability,
-    docs/validation.md C.1); the levels coarse/medium/fine refine the
-    wall-normal boundary-layer resolution by a factor 1.5 per level
-    (first-cell height and growth exponent). refine_mode="all" scales every
-    spacing instead and is used only for the documented refinement tests."""
+    """Mesh family of the capsule: a nested family with refinement ratio 1.5
+    in every spacing (coarse = base values below; medium = base / 1.5; fine =
+    base / 2.25). The first-cell height and the growth exponent of the
+    boundary-layer block scale together so that the number of cells across
+    a fixed layer thickness scales like the spacing. refine_mode="bl"
+    (boundary layer only) is kept for the refinement tests documented in
+    docs/validation.md C.1."""
     level: str = "coarse"        # coarse (base) / medium / fine
-    refine_mode: str = "bl"      # "bl": boundary layer only (production); "all": every spacing
-    # base wall spacings [m]
-    h_cap: float = 1.20e-3
-    h_shoulder: float = 0.45e-3
-    h_cone: float = 1.65e-3
-    h_corner: float = 0.30e-3
-    h_base: float = 1.20e-3
-    first_cell: float = 4.5e-6   # m, base level
-    growth: float = 1.22         # base level
-    h_normal_cap: float = 1.20e-3
+    refine_mode: str = "all"     # "all": every spacing (production family); "bl": boundary layer only
+    # base (coarse-level) wall spacings [m]
+    h_cap: float = 0.80e-3
+    h_shoulder: float = 0.30e-3
+    h_cone: float = 1.10e-3
+    h_corner: float = 0.20e-3
+    h_base: float = 0.80e-3
+    first_cell: float = 3.0e-6   # m, base level
+    growth: float = 1.15         # base level
+    h_normal_cap: float = 0.80e-3
     d_uniform_end_D: float = 0.45  # keep uniform normal spacing out to this many D (shock region)
     n_outer: int = 24            # stretched cells from d_uniform_end to the far boundary
     stretch_ratio: float = 1.15
@@ -338,17 +338,16 @@ def capsule_mesh(params: CapsuleParams, spec: CapsuleMeshSpec) -> "StructuredMes
 # --------------------------------------------------------------------------
 @dataclass
 class CylinderMeshSpec:
-    """Same convention as CapsuleMeshSpec: levels refine the boundary layer
-    (first cell, growth) by 1.5 per level; tangential and shock-region
-    spacings stay at the base values unless refine_mode == "all"."""
+    """Same convention as CapsuleMeshSpec: nested family, ratio 1.5 in every
+    spacing per level (refine_mode "all"); "bl" refines the boundary layer only."""
     level: str = "coarse"
-    refine_mode: str = "bl"
+    refine_mode: str = "all"
     radius: float = 0.0381
-    n_theta: int = 93            # base, over 0..theta_max (1.13 deg)
+    n_theta: int = 140           # base, over 0..theta_max (0.75 deg)
     theta_max_deg: float = 105.0 # outlet placed past the 90 deg station used for comparisons
-    first_cell: float = 1.5e-6   # m, base level
-    growth: float = 1.18
-    h_normal_cap: float = 0.375e-3
+    first_cell: float = 1.0e-6   # m, base level
+    growth: float = 1.12
+    h_normal_cap: float = 0.25e-3
     d_uniform_end_R: float = 0.7  # uniform normal spacing out to this many R (covers the shock at ~0.42 R)
     n_outer: int = 20
     stretch_ratio: float = 1.15

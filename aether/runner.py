@@ -69,7 +69,11 @@ def run_stage(case_dir: str, stage: int, nproc: int = 8, timeout_s: int = 6 * 36
     else:
         flavour = "native-mpi" if "native" in binary else "rosetta-serial"
     if flavour == "native-mpi" and nproc > 1 and shutil.which("mpirun"):
-        cmd = ["mpirun", "-n", str(nproc), binary, cfg]
+        cmd = ["mpirun", "-n", str(nproc)]
+        for var in ("SU2_ROE_PSW", "SU2_AUSM_KP"):     # solver patches read these; export to all ranks
+            if var in os.environ:
+                cmd += ["-x", var]
+        cmd += [binary, cfg]
     else:
         cmd = [binary, cfg]
         nproc = 1
@@ -106,17 +110,13 @@ def run_stage(case_dir: str, stage: int, nproc: int = 8, timeout_s: int = 6 * 36
 
 
 def run_case(case_dir: str, nproc: int = 8, timeout_s: int = 6 * 3600) -> dict:
-    """Run stage 1 then (if enabled for the case) stage 2. Stage 2 is skipped
-    if stage 1 diverged."""
-    r1 = run_stage(case_dir, 1, nproc, timeout_s)
-    if r1["diverged"]:
-        return {"stage1": r1, "stage2": None}
-    run2 = True
-    cj = os.path.join(case_dir, "case.json")
-    if os.path.exists(cj):
-        with open(cj) as fh:
-            run2 = json.load(fh).get("settings", {}).get("run_stage2", True)
-    if not run2:
-        return {"stage1": r1, "stage2": None}
-    r2 = run_stage(case_dir, 2, nproc, timeout_s)
-    return {"stage1": r1, "stage2": r2}
+    """Run every stageN.cfg in order; stop at the first divergence."""
+    recs = {}
+    stage = 1
+    while os.path.exists(os.path.join(case_dir, f"stage{stage}.cfg")):
+        r = run_stage(case_dir, stage, nproc, timeout_s)
+        recs[f"stage{stage}"] = r
+        if r["diverged"]:
+            break
+        stage += 1
+    return recs

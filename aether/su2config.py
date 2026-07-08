@@ -1,32 +1,25 @@
 """Render SU2 configuration files from configs/su2_template.cfg.
 
-A case is run in two stages with the same mesh:
+Every case is run as a sequence of stages on the same mesh, each restarting
+from the previous one (docs/validation.md A.2-A.4 for the evidence behind
+this procedure):
 
-  stage 1  first-order upwind (MUSCL off), CFL controlled by SU2's adaptive
-           controller between 1 and 50. Establishes the bow shock from a
-           uniform free-stream initial field without the start-up
-           oscillations that often diverge second-order hypersonic runs.
-
-Convective scheme: SLAU2 (Kitamura & Shima 2013) with the exact flux
-Jacobian for the implicit system. This choice follows a documented test on
-the Wieting cylinder (docs/validation.md): AUSM+-up2, AUSM, HLLC-type and
-Roe fluxes on this shock-aligned grid developed the carbuncle instability
-(kinked bow shock, non-decreasing residual), Roe with a large entropy fix
-converged but tripled the wall heat flux, SLAU2 converged with the heat
-flux at the experimental level.
-  stage 2  restart from stage 1, second-order MUSCL with the Venkatakrishnan
-           limiter, larger CFL. This is the solution used for all results.
-
-For the planar cylinder benchmark both stages are run and both reported.
-For the axisymmetric capsule runs only stage 1 is run: with SU2 v8.5.0 the
-axisymmetric formulation combined with MUSCL reconstruction does not reach a
-stationary state on the flat capsule face (stagnation pressure pulsating
-above the pitot value) whatever the flux function, limiter or CFL, while
-the same configuration is stationary in planar mode and the first-order
-axisymmetric solution converges; see docs/validation.md section A.4. The
-first-order discretisation error is quantified by the three-level mesh
-study (Richardson extrapolation) and by the first/second-order comparison
-on the cylinder benchmark.
+  stage 1  start-up: Roe flux with a large entropy fix (0.3), first order,
+           adaptive CFL 0.5 -> 30 from a uniform free stream. This scheme is
+           free of the carbuncle instability and establishes the bow shock
+           and the overall field reliably; its boundary-layer heat flux is
+           not usable (the fix dissipates the entropy and shear waves).
+  stage 2  analysis stage: SLAU2 with the exact flux Jacobian, first order,
+           restarted from stage 1, adaptive CFL 1 -> 30. Started from the
+           established field it converges to the carbuncle-free steady
+           state at every mesh level tested; started from a uniform free
+           stream it can lock into the carbuncle branch on refined meshes.
+           All capsule results are taken from this stage.
+  stage 3  (planar benchmark only) second-order MUSCL reconstruction with
+           the Venkatakrishnan-Wang limiter, restarted from stage 2, fixed
+           CFL 1.5. In axisymmetric mode this stage never reaches a
+           stationary state with SU2 v8.5 (A.4), so it is not run for the
+           capsule; on the cylinder it quantifies the order effect.
 """
 from __future__ import annotations
 
@@ -45,10 +38,20 @@ BC_LINES = {
     "cylinder": "MARKER_SYM= ( symmetry )\nMARKER_FAR= ( farfield )\nMARKER_SUPERSONIC_OUTLET= ( outflow )",
 }
 
+# per-stage numerical settings
+STAGES = {
+    1: dict(conv_scheme="ROE", entropy_fix="0.3", accurate_jac="NO", muscl="NO", limiter="VENKATAKRISHNAN_WANG",
+            cfl="0.5", cfl_adapt="YES", cfl_min="0.5", cfl_max="10.0", restart_sol="NO"),
+    2: dict(conv_scheme="SLAU2", entropy_fix="0.0", accurate_jac="YES", muscl="NO", limiter="VENKATAKRISHNAN_WANG",
+            cfl="1.0", cfl_adapt="YES", cfl_min="1.0", cfl_max="30.0", restart_sol="YES"),
+    3: dict(conv_scheme="SLAU2", entropy_fix="0.0", accurate_jac="YES", muscl="YES", limiter="VENKATAKRISHNAN_WANG",
+            cfl="1.5", cfl_adapt="NO", cfl_min="1.5", cfl_max="1.5", restart_sol="YES"),
+}
+
 
 @dataclass
 class CaseSettings:
-    kind: str                     # "capsule" | "cylinder"
+    kind: str                     # key of BC_LINES
     mach: float
     p_inf: float
     T_inf: float
@@ -56,35 +59,34 @@ class CaseSettings:
     ref_length: float
     ref_area: float
     mesh: str = "mesh.su2"
-    conv_scheme: str = "SLAU2"
+    n_stages: int = 2             # capsule: 2 (first-order analysis); cylinder: 3
     venkat: float = 0.05
-    # stage 1
-    s1_cfl: float = 0.5
-    s1_cfl_min: float = 0.5
-    s1_cfl_max: float = 30.0
-    s1_iter: int = 3000
-    s1_conv_resid: float = -10.0
-    s1_cauchy_eps: float = 2e-5
-    # stage 2
-    s2_cfl: float = 1.0
-    s2_cfl_min: float = 1.0
-    s2_cfl_max: float = 50.0
-    s2_iter: int = 8000
-    s2_conv_resid: float = -10.0
-    s2_cauchy_eps: float = 1e-5
+    iters: Dict[int, int] = field(default_factory=lambda: {1: 2500, 2: 4000, 3: 4000})
+    cauchy_eps: Dict[int, float] = field(default_factory=lambda: {1: 5e-5, 2: 2e-5, 3: 2e-5})
+    conv_resid: float = -10.0
     wrt_freq: int = 500
-    run_stage2: bool = True   # second-order stage; disabled for axisymmetric capsule runs (docs/validation.md A.4)
-    extra: Dict[str, str] = field(default_factory=dict)
+    extra: Dict[str, str] = field(default_factory=dict)        # KEY -> value appended to every stage ("__DELETE__" removes)
+    stage_extra: Dict[int, Dict[str, str]] = field(default_factory=dict)   # per-stage overrides
 
     @property
     def axisymmetric(self) -> str:
         return "YES" if self.kind in ("capsule", "capsule_truncated") else "NO"
 
 
+def _apply_overrides(text: str, overrides: Dict[str, str]) -> str:
+    lines = text.splitlines()
+    for k, v in overrides.items():
+        lines = [ln for ln in lines if not ln.startswith(k + "=")]
+        if v != "__DELETE__":
+            lines.append(f"{k}= {v}")
+    return "\n".join(lines) + "\n"
+
+
 def _render(settings: CaseSettings, stage: int) -> str:
     with open(TEMPLATE) as fh:
         tpl = fh.read()
-    common = dict(
+    st = STAGES[stage]
+    values = dict(
         axisymmetric=settings.axisymmetric,
         mach=f"{settings.mach:.4f}",
         p_inf=f"{settings.p_inf:.6g}",
@@ -93,37 +95,23 @@ def _render(settings: CaseSettings, stage: int) -> str:
         ref_length=f"{settings.ref_length:.8g}",
         ref_area=f"{settings.ref_area:.10g}",
         bc_lines=BC_LINES[settings.kind],
-        conv_scheme=settings.conv_scheme,
         venkat=f"{settings.venkat:g}",
         mesh=settings.mesh,
         wrt_freq=str(settings.wrt_freq),
-        cfl_adapt="YES",
+        iter=str(settings.iters[stage]),
+        cauchy_eps=f"{settings.cauchy_eps[stage]:g}",
+        conv_resid=f"{settings.conv_resid:g}",
+        solution_in=f"restart_stage{stage - 1}.dat" if stage > 1 else "restart_stage0.dat",
+        restart_out=f"restart_stage{stage}.dat",
+        history=f"history_stage{stage}", volume=f"flow_stage{stage}", surface=f"surface_stage{stage}",
+        breakdown=f"forces_stage{stage}.dat",
+        **st,
     )
-    if stage == 1:
-        spec = dict(restart_sol="NO", muscl="NO", cfl=f"{settings.s1_cfl:g}",
-                    cfl_min=f"{settings.s1_cfl_min:g}", cfl_max=f"{settings.s1_cfl_max:g}",
-                    iter=str(settings.s1_iter), conv_resid=f"{settings.s1_conv_resid:g}", cauchy_eps=f"{settings.s1_cauchy_eps:g}",
-                    solution_in="restart_stage1.dat", restart_out="restart_stage1.dat",
-                    history="history_stage1", volume="flow_stage1", surface="surface_stage1",
-                    breakdown="forces_stage1.dat")
-    else:
-        spec = dict(restart_sol="YES", muscl="YES", cfl=f"{settings.s2_cfl:g}",
-                    cfl_min=f"{settings.s2_cfl_min:g}", cfl_max=f"{settings.s2_cfl_max:g}",
-                    iter=str(settings.s2_iter), conv_resid=f"{settings.s2_conv_resid:g}", cauchy_eps=f"{settings.s2_cauchy_eps:g}",
-                    solution_in="restart_stage1.dat", restart_out="restart_stage2.dat",
-                    history="history_stage2", volume="flow_stage2", surface="surface_stage2",
-                    breakdown="forces_stage2.dat")
-    values = {**common, **spec}
     out = tpl
     for k, v in values.items():
         out = out.replace("{" + k + "}", v)
-    for k, v in settings.extra.items():
-        # append/override simple KEY= VALUE options
-        lines = out.splitlines()
-        lines = [ln for ln in lines if not ln.startswith(k + "=")]
-        if v != "__DELETE__":
-            lines.append(f"{k}= {v}")
-        out = "\n".join(lines) + "\n"
+    out = _apply_overrides(out, settings.extra)
+    out = _apply_overrides(out, settings.stage_extra.get(stage, {}))
     body = "\n".join(ln for ln in out.splitlines() if not ln.startswith("%"))
     leftover = re.findall(r"\{[a-z_0-9]+\}", body)
     if leftover:
@@ -134,7 +122,7 @@ def _render(settings: CaseSettings, stage: int) -> str:
 def write_stage_configs(settings: CaseSettings, case_dir: str) -> Dict[int, str]:
     os.makedirs(case_dir, exist_ok=True)
     paths = {}
-    for stage in (1, 2):
+    for stage in range(1, settings.n_stages + 1):
         path = os.path.join(case_dir, f"stage{stage}.cfg")
         with open(path, "w") as fh:
             fh.write(_render(settings, stage))

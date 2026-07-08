@@ -126,8 +126,7 @@ def cmd_baseline(args):
 
 
 def cmd_domain_check(args):
-    checks = {"base_far": {"d_far_nose_D": 3.0, "d_far_wake_D": 7.0},
-              "base_shock16": {"h_normal_cap": 1.6e-3}}
+    checks = {"base_far": {"d_far_nose_D": 3.0, "d_far_wake_D": 7.0}}
     for name, spec in checks.items():
         d = os.path.join(CASES, "domain_check", name)
         if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
@@ -199,6 +198,76 @@ def cmd_post(args):
         for r in rows:
             w.writerow({k: r.get(k, "") for k in cols + extra})
     log(f"wrote results/results.csv with {len(rows)} rows")
+
+
+def cmd_uncertainty(args):
+    """Richardson/GCI on the baseline levels and the shock-spacing check -> results/uncertainty.json,
+    docs/mesh_convergence.md table."""
+    import pandas as pd
+    from .convergence import gci, two_grid_uncertainty
+    res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+    out = {"quantities": {}}
+    def pick(cid):
+        r = res[res["case_id"] == cid]
+        return None if r.empty else r.iloc[0]
+    lv = {k: pick(c) for k, c in (("coarse", "B00"), ("medium", "B00_medium"), ("fine", "B00_fine"))}
+    cyl = {k: res[(res["kind"] == "cylinder") & (res["level"] == k)] for k in ("coarse", "medium", "fine")}
+    far = pick("B00_base_far")
+    lines = ["# Mesh convergence and domain checks (baseline)", "",
+             "Levels refine the boundary layer by r = 1.5 (docs/mesh.md). GCI after Celik et al. (2008), Fs = 1.25 for a monotone triplet, else p = 1 and Fs = 3.", "",
+             "| Quantity | coarse | medium | fine | observed order p | extrapolated | GCI medium | GCI coarse |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
+    if all(v is not None for v in lv.values()):
+        for q, label in (("cd", "C_D"), ("q_max_shield", "q''_max shield [W/m^2]"), ("q_stag", "q''_stag (axis node) [W/m^2]"), ("q_plateau", "q'' at S/R = 0.2 [W/m^2]"), ("q_shoulder", "q'' shoulder peak [W/m^2]"), ("shock_standoff_D", "shock stand-off / D")):
+            vals = {}
+            for k, r in lv.items():
+                if q in ("q_plateau", "q_shoulder"):
+                    w = pd.read_csv(os.path.join(r["case_dir"], "wall_profile.csv"))
+                    with open(os.path.join(r["case_dir"], "case.json")) as fh:
+                        meta = json.load(fh)
+                    R = 0.5 * meta["params"]["D"]; sP1, sP2 = meta["geometry"]["s_P1"], meta["geometry"]["s_P2"]
+                    import numpy as np
+                    if q == "q_plateau":
+                        vals[k] = float(np.interp(0.2 * R, w["s"], w["Heat_Flux"]))
+                    else:
+                        m = (w["s"] >= 0.9 * sP1) & (w["s"] <= sP2)
+                        vals[k] = float(w["Heat_Flux"][m].max())
+                else:
+                    vals[k] = float(r[q]) if r[q] == r[q] else None
+            if any(v is None for v in vals.values()):
+                continue
+            g = gci(vals["fine"], vals["medium"], vals["coarse"], r=1.5)
+            out["quantities"][q] = {**vals, **{kk: g[kk] for kk in ("p", "monotone", "f_extrapolated", "GCI_fine", "GCI_medium")}, "GCI_coarse": g["GCI_medium"] * (1.5 ** g["p_used"])}
+            lines.append(f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | {g['p']:.2f}" if g["p"] else f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | n/a (non-monotone)")
+            lines[-1] += f" | {g['f_extrapolated']:.5g} | {100*g['GCI_medium']:.2f} % | {100*out['quantities'][q]['GCI_coarse']:.2f} % |"
+    lines += ["", "## Domain check (coarse level)", "", "| Check | C_D | Δ C_D | q''_max shield | Δ q''_max |", "|---|---:|---:|---:|---:|"]
+    base = lv["coarse"]
+    checks = {}
+    if base is not None:
+        for name, r in (("far boundary 3.0 D / 7.0 D", far),):
+            if r is None: continue
+            dcd = abs(r["cd"] / base["cd"] - 1.0); dq = abs(r["q_max_shield"] / base["q_max_shield"] - 1.0)
+            checks[name] = {"cd": float(r["cd"]), "d_cd_rel": float(dcd), "q_max_shield": float(r["q_max_shield"]), "d_q_rel": float(dq)}
+            lines.append(f"| {name} | {r['cd']:.4f} | {100*dcd:.2f} % | {r['q_max_shield']:.0f} | {100*dq:.2f} % |")
+    out["checks"] = checks
+    # uncertainty for the trade space: larger of base-level GCI and the shock-spacing sensitivity
+    u_cd = max([out["quantities"].get("cd", {}).get("GCI_coarse", 0.0)] + [c["d_cd_rel"] for c in checks.values()])
+    u_q = max([out["quantities"].get("q_max_shield", {}).get("GCI_coarse", 0.0)] + [c["d_q_rel"] for c in checks.values()])
+    out["u_cd"] = float(u_cd); out["u_q"] = float(u_q)
+    lines += ["", f"Uncertainty used in the trade-space analysis (coarse level): u_CD = {100*u_cd:.2f} %, u_q = {100*u_q:.2f} % (larger of coarse-level GCI and the far-boundary sensitivity)."]
+    # cylinder table
+    if all(not v.empty for v in cyl.values()):
+        lines += ["", "## Cylinder benchmark levels", "", "| Level | cells | C_D (1st order) | q''_stag (1st) [W/m^2] | C_D (2nd) | q''_stag (2nd) | q''_stag / Q_0 (2nd) |", "|---|---:|---:|---:|---:|---:|---:|"]
+        for k, r in cyl.items():
+            r = r.iloc[0]
+            b = os.path.join(r["case_dir"], "benchmark_cylinder.json")
+            s1 = json.load(open(os.path.join(r["case_dir"], "summary_stage1.json"))) if os.path.exists(os.path.join(r["case_dir"], "summary_stage1.json")) else {}
+            lines.append(f"| {k} | {int(r['n_cells'])} | {s1.get('cd', float('nan')):.4f} | {s1.get('q_stag', float('nan')):.0f} | {r['cd']:.4f} | {r['q_stag']:.0f} | {r['q_stag']/721050:.3f} |")
+    os.makedirs(RESULTS, exist_ok=True)
+    with open(os.path.join(RESULTS, "uncertainty.json"), "w") as fh:
+        json.dump(out, fh, indent=2)
+    with open(os.path.join(DOCS, "mesh_convergence.md"), "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    log("wrote results/uncertainty.json and docs/mesh_convergence.md")
 
 
 def cmd_figures(args):
@@ -295,6 +364,7 @@ def main(argv=None):
     s.add_argument("--skip-done", action="store_true")
     sub.add_parser("post").set_defaults(fn=cmd_post)
     sub.add_parser("figures").set_defaults(fn=cmd_figures)
+    sub.add_parser("uncertainty").set_defaults(fn=cmd_uncertainty)
     sub.add_parser("versions").set_defaults(fn=cmd_versions)
     args = ap.parse_args(argv)
     args.fn(args)

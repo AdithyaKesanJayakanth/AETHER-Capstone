@@ -13,15 +13,16 @@ from aether.convergence import gci
 def test_config_renders_without_placeholders():
     s = CaseSettings(kind="capsule", mach=10.18, p_inf=190.5, T_inf=48.6, T_wall=300.0,
                      ref_length=0.17577, ref_area=0.024266)
-    for stage in (1, 2):
+    for stage in (1, 2, 3):
         txt = _render(s, stage)
         body = "\n".join(ln for ln in txt.splitlines() if not ln.startswith("%"))
         assert not re.findall(r"\{[a-z_0-9]+\}", body)
         assert "AXISYMMETRIC= YES" in txt
         assert "MARKER_ISOTHERMAL= ( wall, 300.0000 )" in txt
-    assert "MUSCL_FLOW= NO" in _render(s, 1)
-    assert "MUSCL_FLOW= YES" in _render(s, 2)
-    assert "RESTART_SOL= YES" in _render(s, 2)
+    assert "CONV_NUM_METHOD_FLOW= ROE" in _render(s, 1) and "ENTROPY_FIX_COEFF= 0.3" in _render(s, 1)
+    assert "CONV_NUM_METHOD_FLOW= SLAU2" in _render(s, 2) and "MUSCL_FLOW= NO" in _render(s, 2)
+    assert "MUSCL_FLOW= YES" in _render(s, 3)
+    assert "RESTART_SOL= YES" in _render(s, 2) and "SOLUTION_FILENAME= restart_stage1.dat" in _render(s, 2)
 
 
 def test_cylinder_config_is_planar():
@@ -44,8 +45,9 @@ def test_capsule_mesh_levels_are_nested_and_valid():
         # wall nodes on the axis at both ends
         assert m.X[0, 0, 1] == 0.0 and m.X[-1, 0, 1] == 0.0
         assert np.all(m.X[:, :, 1] >= 0.0)
-    # boundary-layer refinement only: cell counts grow modestly, first cell by 1/1.5
-    assert counts[0] < counts[1] < counts[2]
+    # refinement ratio 1.5 per direction -> cell count ratio about 2.25
+    assert 1.9 < counts[1] / counts[0] < 2.6
+    assert 1.9 < counts[2] / counts[1] < 2.6
 
 
 def test_capsule_mesh_first_cell_scales_with_level():
@@ -53,9 +55,9 @@ def test_capsule_mesh_first_cell_scales_with_level():
     h = {lvl: capsule_mesh(p, CapsuleMeshSpec(level=lvl)).quality()["first_cell_height_max"] for lvl in ("coarse", "medium", "fine")}
     assert h["coarse"] == pytest.approx(1.5 * h["medium"], rel=1e-6)
     assert h["fine"] == pytest.approx(h["medium"] / 1.5, rel=1e-6)
-    # tangential/shock spacing unchanged across levels in the production family
+    # tangential spacing refines with the level in the production family
     from aether.mesh import capsule_mesh as cm
-    assert cm(p, CapsuleMeshSpec(level="coarse")).ni == cm(p, CapsuleMeshSpec(level="fine")).ni
+    assert cm(p, CapsuleMeshSpec(level="fine")).ni > cm(p, CapsuleMeshSpec(level="coarse")).ni
 
 
 def test_cylinder_mesh_orthogonal():
