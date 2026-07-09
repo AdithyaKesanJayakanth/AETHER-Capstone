@@ -100,10 +100,37 @@ def cmd_geometry(args):
     log(f"baseline: L/D={prof.length/p.D:.4f} V={prof.volume:.6e} m^3 s_P1/R={prof.s_P1/p.R:.4f} s_Pmax/R={prof.s_Pmax/p.R:.4f}")
 
 
+RETRY_SCHEDULES = [   # alternative stage-2 schedules tried when the first SLAU2 stage lands on the carbuncle branch
+    {"CFL_ADAPT": "NO", "CFL_NUMBER": "1.0"},
+    {"CFL_ADAPT": "YES", "CFL_NUMBER": "1.0", "CFL_ADAPT_PARAM": "( 0.5, 1.2, 1.0, 30.0, 1e-3, 0 )"},
+    {"CFL_ADAPT": "YES", "CFL_NUMBER": "0.5", "CFL_ADAPT_PARAM": "( 0.5, 1.2, 0.5, 5.0, 1e-3, 0 )"},
+]
+
+
 def _run_and_post(case_dir, nproc):
+    from .runner import run_stage
+    from .su2config import _apply_overrides
     rec = run_case(case_dir, nproc=nproc)
     out = postprocess_case(case_dir)
-    log(f"{case_dir}: status={out.get('status')} CD={out.get('cd')} qmax={out.get('q_max_shield', out.get('q_max'))}")
+    attempt = 0
+    while out.get("physical_branch") is False and attempt < len(RETRY_SCHEDULES) and os.path.exists(os.path.join(case_dir, "stage2.cfg")):
+        # keep the failed attempt's evidence, then retry stage 2 from the same stage-1 state
+        tag = f"attempt{attempt}"
+        for f in ("history_stage2.csv", "summary_stage2.json", "stage2.log", "run_stage2.json", "stage2.cfg"):
+            if os.path.exists(os.path.join(case_dir, f)):
+                os.replace(os.path.join(case_dir, f), os.path.join(case_dir, f.replace("stage2", f"stage2_{tag}")))
+        with open(os.path.join(case_dir, f"stage2_{tag}.cfg")) as fh:
+            cfg = fh.read()
+        with open(os.path.join(case_dir, "stage2.cfg"), "w") as fh:
+            fh.write(_apply_overrides(cfg, RETRY_SCHEDULES[attempt]))
+        log(f"{case_dir}: carbuncle branch (p_stag/pitot={out.get('p_stag_over_pitot'):.3f}, q_axis/plateau={out.get('q_axis_over_plateau'):.2f}); retry {attempt + 1} with {RETRY_SCHEDULES[attempt]}")
+        run_stage(case_dir, 2, nproc=nproc)
+        out = postprocess_case(case_dir)
+        out["stage2_attempts"] = attempt + 2
+        with open(os.path.join(case_dir, "summary.json"), "w") as fh:
+            json.dump(out, fh, indent=2)
+        attempt += 1
+    log(f"{case_dir}: status={out.get('status')} CD={out.get('cd')} qmax={out.get('q_max_shield', out.get('q_max'))} p/pitot={out.get('p_stag_over_pitot')}")
     return out
 
 
@@ -169,6 +196,50 @@ def cmd_sweep(args):
             log(f"{c['id']}: run failed\n" + traceback.format_exc())
 
 
+def cmd_refine(args):
+    """Re-run selected sweep cases on finer levels (ranking stability of the finalists)."""
+    import yaml
+    with open(os.path.join(ROOT, "configs", "sweep.yaml")) as fh:
+        sw = yaml.safe_load(fh)
+    base = baseline_params()
+    table = {c["id"]: c for c in sw["cases"]}
+    table[sw["baseline"]["id"]] = {**sw["baseline"], "group": "baseline"}
+    for cid in args.ids:
+        c = table[cid]
+        params = CapsuleParams(D=base.D, Rn_D=float(c["Rn_D"]), Rs_D=float(c["Rs_D"]), theta_c_deg=float(c["theta_c"]), rb_D=base.rb_D)
+        for level in args.levels:
+            d = os.path.join(CASES, "refine", f"{cid}_{level}")
+            if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
+                log(f"skip {d}"); continue
+            build_capsule_case(d, params, level, case_id=f"{cid}_{level}", group="refine", phase=3)
+            _run_and_post(d, args.nproc)
+
+
+def cmd_fields(args):
+    """ParaView field figures for the baseline and the designs named in results/pareto_analysis.json."""
+    import subprocess
+    pv = "/Applications/ParaView-6.2.0.app/Contents/bin/pvpython"
+    picks = {"baseline": os.path.join(CASES, "baseline", "coarse")}
+    pa = os.path.join(RESULTS, "pareto_analysis.json")
+    if os.path.exists(pa):
+        with open(pa) as fh:
+            a = json.load(fh)
+        import pandas as pd
+        res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+        for lab, cid in (("highest_drag", a["highest_drag"]), ("lowest_heating", a["lowest_heating"]),
+                         ("compromise", (a["selections"].get("lowest_q_at_98pct_drag") or {}).get("case_id"))):
+            if cid and cid != "B00":
+                r = res[res["case_id"] == cid]
+                if not r.empty:
+                    picks[f"{lab}_{cid}"] = r["case_dir"].iloc[0]
+    os.makedirs(os.path.join(RESULTS, "figures", "fields"), exist_ok=True)
+    for lab, d in picks.items():
+        out = os.path.join(RESULTS, "figures", "fields", lab)
+        cmd = [pv, os.path.join(ROOT, "scripts", "paraview_fields.py"), d, out] + (["--revolve"] if lab == "baseline" else [])
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        log(f"fields {lab}: exit {r.returncode} {r.stderr.strip().splitlines()[-1][:120] if r.returncode else ''}")
+
+
 def cmd_post(args):
     rows = []
     for root, dirs, files in os.walk(CASES):
@@ -185,9 +256,10 @@ def cmd_post(args):
                          "theta_c_deg": inv["params"]["theta_c_deg"], "invalid_reason": inv["reason"]})
     cols = ["case_id", "group", "phase", "kind", "level", "status", "Rn_D", "Rs_D", "theta_c_deg", "length_D", "volume_m3",
             "n_cells", "binary", "nproc", "su2_version", "iterations", "wall_time_s",
-            "rms_rho_drop_orders", "cd_flatness", "maxhf_flatness", "q_max_change_last_window", "converged", "convective_order",
+            "rms_rho_drop_orders", "cd_flatness", "maxhf_flatness", "q_max_change_last_window", "physical_branch",
+            "p_stag_over_pitot", "q_axis_over_plateau", "stage2_attempts", "converged", "convective_order",
             "cd", "cd_integrated", "cd_pressure_integrated", "drag_N", "drag_over_mass",
-            "q_stag", "q_max_shield", "s_q_max_shield", "s_over_R_q_max", "q_max_whole_body", "s_q_max_whole_body",
+            "q_stag", "q_plateau", "q_max_shield", "s_q_max_shield", "s_over_R_q_max", "q_axis_region_max", "q_axis_region_min", "q_max_whole_body", "s_q_max_whole_body",
             "q_max", "theta_q_max", "p_stag", "shock_standoff_m", "shock_standoff_D", "invalid_reason", "case_dir"]
     extra = sorted({k for r in rows for k in r} - set(cols))
     os.makedirs(RESULTS, exist_ok=True)
@@ -363,6 +435,10 @@ def main(argv=None):
     s.add_argument("--phase", type=int, default=None); s.add_argument("--only", nargs="*", default=None)
     s.add_argument("--skip-done", action="store_true")
     sub.add_parser("post").set_defaults(fn=cmd_post)
+    s = sub.add_parser("refine"); s.set_defaults(fn=cmd_refine)
+    s.add_argument("--ids", nargs="+", required=True); s.add_argument("--levels", nargs="+", default=["medium", "fine"])
+    s.add_argument("--nproc", type=int, default=8); s.add_argument("--skip-done", action="store_true")
+    sub.add_parser("fields").set_defaults(fn=cmd_fields)
     sub.add_parser("figures").set_defaults(fn=cmd_figures)
     sub.add_parser("uncertainty").set_defaults(fn=cmd_uncertainty)
     sub.add_parser("versions").set_defaults(fn=cmd_versions)

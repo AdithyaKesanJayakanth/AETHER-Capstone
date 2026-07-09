@@ -27,7 +27,7 @@ ROSETTA = os.path.join(ROOT, "tools", "su2-rosetta", "bin", "SU2_CFD")
 def pick_binary() -> tuple[str, str]:
     env = os.environ.get("AETHER_SU2")
     if env:
-        return env, ("native-mpi" if "native" in env else "custom")
+        return env, ("rosetta-serial" if "rosetta" in env else "native-mpi")
     if os.path.exists(NATIVE):
         return NATIVE, "native-mpi"
     if os.path.exists(ROSETTA):
@@ -67,7 +67,7 @@ def run_stage(case_dir: str, stage: int, nproc: int = 8, timeout_s: int = 6 * 36
     if binary is None:
         binary, flavour = pick_binary()
     else:
-        flavour = "native-mpi" if "native" in binary else "rosetta-serial"
+        flavour = "rosetta-serial" if "rosetta" in binary else "native-mpi"
     if flavour == "native-mpi" and nproc > 1 and shutil.which("mpirun"):
         cmd = ["mpirun", "-n", str(nproc)]
         for var in ("SU2_ROE_PSW", "SU2_AUSM_KP"):     # solver patches read these; export to all ranks

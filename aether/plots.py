@@ -66,8 +66,7 @@ def apollo_validation(case_dirs: dict, name="validation_apollo.png"):
         R = 0.5 * meta["params"]["D"]; p_t = meta["freestream"]["p_t2"]
         w = _wall(d); SR = w["s"] / R
         q = w["Heat_Flux"].to_numpy()
-        # normalise by the heating at S/R = 0.2 (outside the near-axis cells; see docs/validation.md)
-        q_t = np.interp(0.2, SR, q)
+        q_t = q[0]          # computed stagnation-point heating (the report normalises by its measured value)
         axs[0].plot(SR, w["Pressure"] / p_t, color=COLORS[level], label=f"SU2 {level}")
         axs[1].plot(SR, q / q_t, color=COLORS[level], label=f"SU2 {level}")
     SRm = np.linspace(0, 0.965, 200)

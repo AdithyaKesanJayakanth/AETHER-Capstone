@@ -42,9 +42,9 @@ try:
 except Exception:
     pass
 
-fields = [("Mach", "Mach number", None, "Viridis (matplotlib)"),
-          ("Temperature", "Temperature [K]", None, "Inferno (matplotlib)"),
-          ("Pressure", "Pressure [Pa]", None, "Viridis (matplotlib)"),
+fields = [("Mach", "Mach number", None, "Viridis"),
+          ("Temperature", "Temperature [K]", None, "Inferno"),
+          ("Pressure", "Pressure [Pa]", None, "Viridis"),
           ("schlieren", "|grad rho| [kg/m^4]", "log", "Grayscale")]
 for name, title, scale, cmap in fields:
     disp = Show(calc, view)
@@ -64,18 +64,23 @@ for name, title, scale, cmap in fields:
     view.ResetCamera()
     # frame the body region: x from -0.4 D to L + D, y to 1.3 D (bounds-based)
     cam = GetActiveCamera()
-    xmin, xmax, ymin, ymax = bounds[0], bounds[1], bounds[2], bounds[3]
-    cx = 0.25 * (xmin + xmax); cy = 0.35 * ymax
+    D = float(os.environ.get("AETHER_D", "0.17577"))
+    cx, cy = 0.35 * D, 0.65 * D            # frame the body: x in [-0.5 D, 1.2 D], y in [0, 1.3 D]
     cam.SetFocalPoint(cx, cy, 0); cam.SetPosition(cx, cy, 1.0)
-    cam.SetParallelScale(0.45 * ymax)
+    cam.SetParallelScale(0.7 * D)
     Render(view)
     SaveScreenshot(f"{out}_{name}.png", view, ImageResolution=[1400, 800])
     Hide(calc, view)
 
 if revolve:
-    warp = RotationalExtrusion(Input=reader)
+    surf = ExtractSurface(Input=reader)
+    warp = RotationalExtrusion(Input=surf)
     warp.Resolution = 90
     warp.Angle = 270
+    try:
+        warp.RotationAxis = [1.0, 0.0, 0.0]
+    except Exception:
+        pass
     try:
         warp.Capping = 0
     except Exception:
@@ -88,7 +93,7 @@ if revolve:
         pass
     d3 = Show(warp, v3)
     ColorBy(d3, ("POINTS", "Mach"))
-    GetColorTransferFunction("Mach").ApplyPreset("Viridis (matplotlib)", True)
+    GetColorTransferFunction("Mach").ApplyPreset("Viridis", True)
     d3.SetScalarBarVisibility(v3, True)
     v3.ResetCamera()
     cam = v3.GetActiveCamera(); cam.Elevation(25); cam.Azimuth(-35)
