@@ -40,7 +40,7 @@ make report       # docs/report/report.pdf
 
 Every case directory is self-contained: `mesh.su2`, `stage1.cfg`, `stage2.cfg`, `history_stage*.csv`, `flow_stage2.vtu`, `wall_profile.csv`, `summary.json`, `run_stage*.json` (binary, ranks, wall time, exit code). `results/results.csv` links every number in the report to its case directory.
 
-Exact software versions: [docs/versions.md](docs/versions.md). The SU2 binary is built from the v8.5.0 tag with one source patch (axisymmetric near-axis treatment, SU2 pull request #2715); the reason and the evidence are in [docs/validation.md](docs/validation.md).
+Exact software versions: [docs/versions.md](docs/versions.md). The SU2 binary is built from the v8.5.0 tag with the source changes of SU2 pull request #2715 (axisymmetric near-axis treatment) applied, plus two environment-variable test hooks that are inactive in production (`tools/aether_su2_patches.diff`); the reasons and the evidence are in [docs/validation.md](docs/validation.md). Each case runs as a Roe-fix start-up stage followed by a SLAU2 first-order analysis stage (and a second-order stage for the planar benchmark), with a physical-branch check and automatic retries described there.
 
 ## Main documents
 

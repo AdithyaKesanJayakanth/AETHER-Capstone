@@ -40,19 +40,31 @@ def cylinder_validation(case_dirs: dict, name="validation_cylinder.png"):
     cond = load_conditions()["cylinder"]
     p_ref = pd.read_csv(os.path.join(REF, "wieting_run31_pressure.csv"), comment="#")
     q_ref = pd.read_csv(os.path.join(REF, "wieting_run31_heatflux.csv"), comment="#")
-    fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axs = plt.subplots(1, 3, figsize=(14, 4))
     for level, d in case_dirs.items():
         w = _wall(d)
-        th = w["theta_deg"].to_numpy()
+        th = w["theta_deg"].to_numpy(); q = w["Heat_Flux"].to_numpy()
         axs[0].plot(th, w["Pressure"] / cond["P0"], color=COLORS[level], label=f"SU2 {level}")
-        axs[1].plot(th, w["Heat_Flux"] / cond["Q0"], color=COLORS[level], label=f"SU2 {level}")
+        axs[1].plot(th, q / cond["Q0"], color=COLORS[level], label=f"SU2 {level}")
+        axs[2].plot(th, q / q[0], color=COLORS[level], label=f"SU2 {level}")
     axs[0].plot(np.abs(p_ref["theta_deg"]), p_ref["p_over_P0"], "o", color=COLORS["ref"], mfc="none", label="Wieting Run 31")
     axs[1].plot(np.abs(q_ref["theta_deg"]), q_ref["q_over_Q0"], "o", color=COLORS["ref"], mfc="none", label="Wieting Run 31")
-    axs[0].set_xlabel(r"$\theta$ [deg]"); axs[0].set_ylabel(r"$p / P_0$"); axs[0].set_xlim(0, 90)
-    axs[1].set_xlabel(r"$\theta$ [deg]"); axs[1].set_ylabel(r"$q'' / Q_0$"); axs[1].set_xlim(0, 90)
-    axs[0].set_title("Surface pressure, M = 8.03 cylinder"); axs[1].set_title("Wall heat flux, M = 8.03 cylinder")
-    axs[0].legend(); axs[1].legend()
+    axs[2].plot(np.abs(q_ref["theta_deg"]), q_ref["q_over_Q0"], "o", color=COLORS["ref"], mfc="none", label="Wieting Run 31 (q/Q0)")
+    axs[1].axhline(cylinder_fr_ratio(), color=COLORS["theory"], ls="--", lw=1, label="Fay-Riddell (2-D) / Q0")
+    for ax in axs:
+        ax.set_xlabel(r"$\theta$ [deg]"); ax.set_xlim(0, 90)
+    axs[0].set_ylabel(r"$p / P_0$"); axs[1].set_ylabel(r"$q'' / Q_0$"); axs[2].set_ylabel(r"$q'' / q''_{stag}$")
+    axs[0].set_title("Surface pressure"); axs[1].set_title("Wall heat flux, absolute level"); axs[2].set_title("Wall heat flux, distribution shape")
+    for ax in axs:
+        ax.legend(fontsize=8)
     return _save(fig, name)
+
+
+def cylinder_fr_ratio():
+    from .cases import cylinder_freestream, load_conditions
+    from .conditions import fay_riddell_stagnation
+    c = load_conditions()["cylinder"]
+    return fay_riddell_stagnation(cylinder_freestream(), c["radius"], axisymmetric=False) / c["Q0"]
 
 
 # ---------------------------------------------------------------- benchmark B

@@ -8,7 +8,15 @@
 
 Configuration: laminar Navier–Stokes, M = 8.03, p∞ = 855 Pa, T∞ = 124.94 K, isothermal wall 294.44 K, SLAU2 with exact flux Jacobian, stage 1 first order, stage 2 MUSCL + Venkatakrishnan–Wang limiter; three nested polar meshes. Comparison quantities: normalised surface pressure p/P₀ (P₀ = 10.47 psia, the report's stagnation-line pressure) and heat flux q''/Q₀ (Q₀ = 63.49 Btu/ft²·s = 721 kW/m², the report's measured stagnation value) against the transcribed Run 31 table; absolute stagnation heat flux against Fay–Riddell (2-D, perfect gas: 487 kW/m²).
 
-*Results table and figure: filled by `make figures` (results/figures/validation_cylinder.png, cases/benchmarks/wieting_cyl/*/benchmark_cylinder.json).*
+| Level | cells | C_D 1st / 2nd order | q''_stag 1st / 2nd [kW/m²] | q''_stag / Q₀ (report) | q''_stag / Fay–Riddell | p_stag / pitot | rms shape diff. q, p |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| coarse | 23 380 | 0.6300 / 0.6275 | 499 / 504 | 0.70 | 1.02 | 1.000 | 0.046, 0.023 |
+| medium | 52 290 | 0.6293 / 0.6273 | 516 / 520 | 0.72 | 1.05 | 1.000 | 0.037, 0.023 |
+| fine | 117 180 | 0.6294 / 0.6278 | 555 / 548 | 0.76 | 1.11 | 0.999 | 0.062, 0.023 |
+
+![Cylinder benchmark](../results/figures/validation_cylinder.png)
+
+What the comparison supports: (i) the stagnation pressure equals the Rayleigh pitot value to 0.1 % and the pressure distribution follows the measurements to within their scatter (rms 0.023 in p/P₀ over 18 stations); (ii) the computed stagnation heat flux is 2–11 % above the perfect-gas Fay–Riddell value and 24–30 % below the report's measured Q₀ — the same gap the report itself notes between its measurements and viscous-shock-layer theory (18 % for the Mach 6.3 run) and that is commonly attributed to free-stream noise and the thermally perfect stagnation enthalpy of the shock tunnel; (iii) the normalised distribution q''/q''_stag follows the measured q''/Q₀ to rms 0.04–0.06 over 34 stations, with the computed profile decaying slightly more slowly than the measurements between 25° and 50°; (iv) the first- and second-order solutions differ by at most 1.3 % in stagnation heating and 0.4 % in drag, which bounds the order effect for the axisymmetric runs where only first order is used; (v) on the finest mesh the second-order limiter leaves small oscillations in the expansion beyond 60°, a region irrelevant to the heating objective. The absolute heating level is therefore not claimed to better than about 25 %; the ranking of shapes relies on the distribution shape and on differences at the same condition.
 
 ### A.2 Choice of the convective scheme (coarse cylinder, exploratory)
 
