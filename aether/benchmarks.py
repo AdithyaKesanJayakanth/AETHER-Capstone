@@ -67,11 +67,12 @@ def apollo_comparison(case_dir: str) -> dict:
     # both sides of the pitch plane are the same meridian at alpha = 0
     pr = np.abs(p_ref["S_over_R"].to_numpy()); qr = np.abs(q_ref["S_over_R"].to_numpy())
     p_cfd = np.interp(pr, SR, p / p_t)
-    q_cfd = np.interp(qr, SR, q / q[0])
+    q_t = float(np.median(q[(SR >= 0.1) & (SR <= 0.5)]))      # stagnation-region plateau (A.5)
+    q_cfd = np.interp(qr, SR, q / q_t)
     q_mid = 0.5 * (q_ref["q_over_qt_min"] + q_ref["q_over_qt_max"]).to_numpy()
     q_half = 0.5 * (q_ref["q_over_qt_max"] - q_ref["q_over_qt_min"]).to_numpy()
     inside = np.abs(q_cfd - q_mid) <= q_half + 0.02
-    out = {"p_stag_over_pt2": float(p[0] / p_t), "q_stag_W_m2": float(q[0]),
+    out = {"p_stag_over_pt2": float(p[0] / p_t), "q_stag_W_m2": float(q[0]), "q_plateau_W_m2": q_t,
            "fay_riddell_W_m2": fay_riddell_stagnation(main_freestream(), meta["params"]["Rn_D"] * meta["params"]["D"]),
            "p_rms_diff": float(np.sqrt(np.mean((p_cfd - p_ref["p_over_pt"].to_numpy()) ** 2))),
            "p_max_abs_diff": float(np.max(np.abs(p_cfd - p_ref["p_over_pt"].to_numpy()))),
@@ -80,7 +81,7 @@ def apollo_comparison(case_dir: str) -> dict:
            "stations": [{"S_over_R": float(a), "p_ref": float(b), "p_cfd": float(c)} for a, b, c in zip(pr, p_ref["p_over_pt"], p_cfd)],
            "q_stations": [{"S_over_R": float(a), "q_ref_min": float(b), "q_ref_max": float(c), "q_cfd": float(d)}
                           for a, b, c, d in zip(qr, q_ref["q_over_qt_min"], q_ref["q_over_qt_max"], q_cfd)]}
-    out["q_stag_over_fay_riddell"] = out["q_stag_W_m2"] / out["fay_riddell_W_m2"]
+    out["q_plateau_over_fay_riddell"] = out["q_plateau_W_m2"] / out["fay_riddell_W_m2"]
     # forebody pressure drag from the measured distribution (modified Newtonian fairing between stations is
     # not needed: integrate the digitised points directly on the actual profile)
     with open(os.path.join(case_dir, "benchmark_apollo.json"), "w") as fh:

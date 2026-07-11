@@ -78,7 +78,7 @@ def apollo_validation(case_dirs: dict, name="validation_apollo.png"):
         R = 0.5 * meta["params"]["D"]; p_t = meta["freestream"]["p_t2"]
         w = _wall(d); SR = w["s"] / R
         q = w["Heat_Flux"].to_numpy()
-        q_t = q[0]          # computed stagnation-point heating (the report normalises by its measured value)
+        q_t = float(np.median(q[(SR >= 0.1) & (SR <= 0.5)]))   # stagnation-region plateau (docs/validation.md A.5)
         axs[0].plot(SR, w["Pressure"] / p_t, color=COLORS[level], label=f"SU2 {level}")
         axs[1].plot(SR, q / q_t, color=COLORS[level], label=f"SU2 {level}")
     SRm = np.linspace(0, 0.965, 200)
@@ -95,7 +95,8 @@ def apollo_validation(case_dirs: dict, name="validation_apollo.png"):
     for ax in axs:
         ax.axvline(0.965, color="k", lw=0.6, ls=":"); ax.axvline(1.08, color="k", lw=0.6, ls=":")
         ax.set_xlim(0, 1.3); ax.set_xlabel("S/R")
-    axs[0].set_ylabel(r"$p / p_{t2}$"); axs[1].set_ylabel(r"$q'' / q''_{t}$"); axs[1].set_ylim(0, 1.6)
+    axs[0].set_ylabel(r"$p / p_{t2}$"); axs[1].set_ylabel(r"$q'' / q''_{t}$  ($q''_t$: SU2 plateau 0.1–0.5, report: measured stagnation)"); axs[1].set_ylim(0, 1.6)
+    axs[1].axvspan(0, 0.1, color="0.85", alpha=0.6, lw=0)
     axs[0].set_title("Forebody pressure, Apollo, M = 10.18"); axs[1].set_title("Forebody heating, Apollo, M = 10.18")
     axs[0].legend(fontsize=8); axs[1].legend(fontsize=8)
     return _save(fig, name)
