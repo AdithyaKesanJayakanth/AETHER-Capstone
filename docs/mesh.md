@@ -19,7 +19,7 @@ All meshes are single-block, body-fitted structured quadrilateral grids written 
 | First cell height at the wall | 3.0 µm | 1.0 µm |
 | Normal growth ratio in the boundary-layer block | 1.15 | 1.12 |
 | Uniform normal spacing through the shock region | 0.8 mm out to 0.45 D | 0.25 mm out to 0.7 R |
-| Stretched cells to the far boundary | 24 (ratio ≈ 1.15) | 20 |
+| Stretched cells to the far boundary | 36 (ratio ≈ 1.10) | 20 |
 | Wall spacing: nose cap / shoulder / cone | 0.8 / 0.3 / 1.1 mm | 0.75° (0.5 mm) |
 | Cells (baseline geometry) | 45 552 / 101 616 / 228 636 | 23 380 / 52 290 / 117 180 |
 

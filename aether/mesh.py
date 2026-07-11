@@ -120,11 +120,11 @@ class CapsuleMeshSpec:
     growth: float = 1.15         # base level
     h_normal_cap: float = 0.80e-3
     d_uniform_end_D: float = 0.45  # keep uniform normal spacing out to this many D (shock region)
-    n_outer: int = 24            # stretched cells from d_uniform_end to the far boundary
+    n_outer: int = 36            # stretched cells from d_uniform_end to the far boundary
     stretch_ratio: float = 1.15
     d_far_nose_D: float = 2.0    # far boundary distance at the nose, in D
     d_far_wake_D: float = 4.5    # far boundary distance behind the base, in D
-    smooth_max: int = 60         # maximum normal-smoothing half-width (in wall points)
+    smooth_max: int = 90         # maximum normal-smoothing half-width (in wall points)
     redistribute_max: float = 0.85  # how far the far-field spacing is relaxed toward uniform
     truncate_at_base: bool = False  # forebody + cone only: outlet plane normal to the cone at its end (base and wake excluded)
     axis_offset: float = 0.0        # [m] symmetry line placed at y = axis_offset instead of y = 0 (see docs/mesh.md)

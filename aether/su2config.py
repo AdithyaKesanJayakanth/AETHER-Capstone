@@ -41,7 +41,7 @@ BC_LINES = {
 # per-stage numerical settings
 STAGES = {
     1: dict(conv_scheme="ROE", entropy_fix="0.3", accurate_jac="NO", muscl="NO", limiter="VENKATAKRISHNAN_WANG",
-            cfl="0.5", cfl_adapt="YES", cfl_min="0.5", cfl_max="10.0", restart_sol="NO"),
+            cfl="0.5", cfl_adapt="YES", cfl_min="0.5", cfl_max="30.0", restart_sol="NO"),
     2: dict(conv_scheme="SLAU2", entropy_fix="0.0", accurate_jac="YES", muscl="NO", limiter="VENKATAKRISHNAN_WANG",
             cfl="1.0", cfl_adapt="YES", cfl_min="1.0", cfl_max="30.0", restart_sol="YES"),
     3: dict(conv_scheme="SLAU2", entropy_fix="0.0", accurate_jac="YES", muscl="YES", limiter="VENKATAKRISHNAN_WANG",
@@ -62,7 +62,7 @@ class CaseSettings:
     n_stages: int = 2             # capsule: 2 (first-order analysis); cylinder: 3
     venkat: float = 0.05
     iters: Dict[int, int] = field(default_factory=lambda: {1: 2500, 2: 4000, 3: 4000})
-    cauchy_eps: Dict[int, float] = field(default_factory=lambda: {1: 5e-5, 2: 2e-5, 3: 2e-5})
+    cauchy_eps: Dict[int, float] = field(default_factory=lambda: {1: 2e-5, 2: 2e-5, 3: 2e-5})
     conv_resid: float = -10.0
     wrt_freq: int = 500
     extra: Dict[str, str] = field(default_factory=dict)        # KEY -> value appended to every stage ("__DELETE__" removes)
