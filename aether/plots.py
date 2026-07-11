@@ -95,8 +95,9 @@ def apollo_validation(case_dirs: dict, name="validation_apollo.png"):
     for ax in axs:
         ax.axvline(0.965, color="k", lw=0.6, ls=":"); ax.axvline(1.08, color="k", lw=0.6, ls=":")
         ax.set_xlim(0, 1.3); ax.set_xlabel("S/R")
-    axs[0].set_ylabel(r"$p / p_{t2}$"); axs[1].set_ylabel(r"$q'' / q''_{t}$  ($q''_t$: SU2 plateau 0.1–0.5, report: measured stagnation)"); axs[1].set_ylim(0, 1.6)
+    axs[0].set_ylabel(r"$p / p_{t2}$"); axs[1].set_ylabel(r"$q'' / q''_{t}$"); axs[1].set_ylim(0, 1.6)
     axs[1].axvspan(0, 0.1, color="0.85", alpha=0.6, lw=0)
+    axs[1].text(0.12, 1.5, "SU2: $q''_t$ = plateau median over 0.1–0.5 (near-axis cells shaded)\nreport: $q''_t$ = measured stagnation value", fontsize=7, va="top")
     axs[0].set_title("Forebody pressure, Apollo, M = 10.18"); axs[1].set_title("Forebody heating, Apollo, M = 10.18")
     axs[0].legend(fontsize=8); axs[1].legend(fontsize=8)
     return _save(fig, name)
