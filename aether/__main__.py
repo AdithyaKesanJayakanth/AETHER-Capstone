@@ -148,7 +148,7 @@ def cmd_baseline(args):
         d = os.path.join(CASES, "baseline", level)
         if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
             log(f"skip {d}"); continue
-        build_capsule_case(d, baseline_params(), level, case_id="B00" if level == "coarse" else f"B00_{level}", group="baseline")
+        build_capsule_case(d, baseline_params(), level, case_id="B00" if level == "medium" else f"B00_{level}", group="baseline")
         _run_and_post(d, args.nproc)
 
 
@@ -158,7 +158,7 @@ def cmd_domain_check(args):
         d = os.path.join(CASES, "domain_check", name)
         if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
             log(f"skip {d}"); continue
-        build_capsule_case(d, baseline_params(), "coarse", case_id=f"B00_{name}", group="check", spec_overrides=spec)
+        build_capsule_case(d, baseline_params(), "medium", case_id=f"B00_{name}", group="check", spec_overrides=spec)
         _run_and_post(d, args.nproc)
 
 
@@ -322,7 +322,7 @@ def cmd_uncertainty(args):
     def pick(cid):
         r = res[res["case_id"] == cid]
         return None if r.empty else r.iloc[0]
-    lv = {k: pick(c) for k, c in (("coarse", "B00"), ("medium", "B00_medium"), ("fine", "B00_fine"))}
+    lv = {k: pick(c) for k, c in (("coarse", "B00_coarse"), ("medium", "B00"), ("fine", "B00_fine"))}
     cyl = {k: res[(res["kind"] == "cylinder") & (res["level"] == k)] for k in ("coarse", "medium", "fine")}
     far = pick("B00_base_far")
     lines = ["# Mesh convergence and domain checks (baseline)", "",

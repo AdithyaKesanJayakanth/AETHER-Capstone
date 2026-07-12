@@ -2,7 +2,7 @@
 # Rn_D nose radius / D, Rs_D shoulder radius / D, theta_c rear-body cone half-angle [deg].
 # Phase 1: one-variable perturbations about the baseline (nose and cone first, then shoulder).
 # Phase 2: combinations toward the promising corner, chosen after Phase 1 (see docs/logbook.md).
-mesh_level: coarse   # base resolution of the boundary-layer refinement family (docs/mesh.md)
+mesh_level: medium   # the coarse level still carries the near-axis oscillation out to S/R 0.2 (docs/validation.md C.2)
 baseline:
   id: B00
   Rn_D: 1.20231
