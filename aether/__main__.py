@@ -299,7 +299,7 @@ def cmd_post(args):
             "rms_rho_drop_orders", "cd_flatness", "maxhf_flatness", "q_max_change_last_window", "physical_branch",
             "p_stag_over_pitot", "q_axis_over_plateau", "stage2_attempts", "converged", "convective_order",
             "cd", "cd_integrated", "cd_pressure_integrated", "drag_N", "drag_over_mass",
-            "q_stag", "q_plateau", "q_max_shield", "s_q_max_shield", "s_over_R_q_max", "q_axis_region_max", "q_axis_region_min", "q_max_whole_body", "s_q_max_whole_body",
+            "q_stag", "q_plateau", "q_max_shield", "s_q_max_shield", "s_over_R_q_max", "axis_region_clean", "q_axis_region_max", "q_axis_region_min", "q_max_whole_body", "s_q_max_whole_body",
             "q_max", "theta_q_max", "p_stag", "shock_standoff_m", "shock_standoff_D", "invalid_reason", "case_dir"]
     extra = sorted({k for r in rows for k in r} - set(cols))
     os.makedirs(RESULTS, exist_ok=True)

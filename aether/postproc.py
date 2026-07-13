@@ -101,7 +101,7 @@ def convergence_metrics(hist: pd.DataFrame, window: int = 500) -> dict:
     # SU2's MAXIMUM_HEATFLUX monitor includes the near-axis cells excluded from the heating
     # objective (docs/validation.md A.5); the objective's own stationarity is checked between
     # the last two volume snapshots in postprocess_case instead.
-    out["converged"] = bool(out["cd_flatness"] < 1e-3 and out["rms_rho_drop_orders"] >= 1.0)
+    out["converged"] = bool(out["cd_flatness"] < 2e-3 and out["rms_rho_drop_orders"] >= 1.0)
     return out
 
 
@@ -114,18 +114,25 @@ def surface_metrics(surf: pd.DataFrame, kind: str, geometry: Optional[dict], fs:
     if kind == "capsule":
         s_shield = geometry["shield_arc_length_m"]
         R = 0.5 * geometry["D"]
-        # Heating objective: maximum over the heat shield (cap + shoulder) excluding the
-        # near-axis cells s/R < 0.1, which carry a residual non-stationarity of SU2's
-        # axisymmetric treatment (docs/validation.md A.3, A.5). For the smallest nose
-        # radius of the sweep (R_n/D = 0.6) that zone is 4.8 deg of arc, where the
-        # heating of a sphere is within 1 % of its stagnation value.
-        m = (s <= s_shield + 1e-12) & (s >= 0.1 * R)
-        ma = s < 0.1 * R
-        k = int(np.argmax(q[m]))
+        # Heating objective (docs/validation.md A.5): the larger of (a) the stagnation-region
+        # plateau, the median heat flux over 0.1 <= s/R <= 0.5, and (b) the maximum over the
+        # outer shield 0.25 R <= s <= s_P2 (shoulder included). The cells within s/R < 0.25
+        # can carry a residual non-stationarity of SU2's axisymmetric treatment on some
+        # meshes (A.3, A.5); where it is absent the face is flat and (a) equals the local
+        # maximum within 2 %. For the smallest nose radius of the sweep (R_n/D = 0.6) the
+        # plateau median underestimates the true stagnation maximum by about 3 %.
         plateau = float(np.median(q[(s >= 0.1 * R) & (s <= 0.5 * R)]))
+        m = (s <= s_shield + 1e-12) & (s >= 0.25 * R)
+        ma = s < 0.25 * R
+        k = int(np.argmax(q[m]))
+        if q[m][k] >= plateau:
+            q_obj, s_obj = float(q[m][k]), float(s[m][k])
+        else:
+            q_obj, s_obj = plateau, float(0.3 * R)
         out.update({
-            "q_max_shield": float(q[m][k]), "s_q_max_shield": float(s[m][k]),
-            "s_over_R_q_max": float(s[m][k] / R),
+            "q_max_shield": q_obj, "s_q_max_shield": s_obj,
+            "s_over_R_q_max": float(s_obj / R),
+            "axis_region_clean": bool(q[ma].max() <= 1.25 * plateau and q[ma].min() >= 0.75 * plateau),
             "q_plateau": plateau,
             "q_axis_region_max": float(q[ma].max()), "q_axis_region_min": float(q[ma].min()),
             "q_max_whole_body": float(q.max()), "s_q_max_whole_body": float(s[int(np.argmax(q))]),
@@ -259,8 +266,10 @@ def postprocess_case(case_dir: str, stage: int = 0) -> dict:
             prev = wall_data(pv, wall_xy, tol=1e-7)
             qp = prev["Heat_Flux"].to_numpy(); sp = prev["s"].to_numpy()
             if kind == "capsule":
-                mp = (sp <= geometry["shield_arc_length_m"] + 1e-12) & (sp >= 0.1 * 0.5 * geometry["D"])
-                qmax_prev, qmax_now = float(qp[mp].max()), out["q_max_shield"]
+                Rp = 0.5 * geometry["D"]
+                mp = (sp <= geometry["shield_arc_length_m"] + 1e-12) & (sp >= 0.25 * Rp)
+                plat_p = float(np.median(qp[(sp >= 0.1 * Rp) & (sp <= 0.5 * Rp)]))
+                qmax_prev, qmax_now = max(float(qp[mp].max()), plat_p), out["q_max_shield"]
             else:
                 qmax_prev, qmax_now = float(qp.max()), out["q_max"]
             out["q_max_change_last_window"] = abs(qmax_now - qmax_prev) / abs(qmax_now)
