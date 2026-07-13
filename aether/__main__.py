@@ -333,7 +333,19 @@ def cmd_post(args):
     for root, dirs, files in os.walk(CASES):
         if "case.json" in files:
             try:
-                rows.append(postprocess_case(root))
+                row = postprocess_case(root)
+                # sweep cases are ranked only when the analysis stage converged at the first attempt:
+                # retried solutions reach the physical branch only at low CFL and their heating level is
+                # ambiguous by 10-15 % (docs/validation.md A.5, "unresolved cases")
+                sp = os.path.join(root, "summary.json")
+                with open(sp) as fh:
+                    saved = json.load(fh)
+                for k in ("stage1_attempts", "stage2_attempts"):
+                    if k in saved:
+                        row[k] = saved[k]
+                if row.get("group") in ("nose", "cone", "shoulder", "combo") and row.get("status") == "converged" and row.get("stage2_attempts", 1) > 1:
+                    row["status"] = "unresolved_retry"
+                rows.append(row)
             except Exception as e:
                 rows.append({"case_dir": root, "status": f"postproc_error: {e}"})
         elif "invalid.json" in files:
@@ -374,10 +386,10 @@ def cmd_uncertainty(args):
     cyl = {k: res[(res["kind"] == "cylinder") & (res["level"] == k)] for k in ("coarse", "medium", "fine")}
     far = pick("B00_base_far")
     lines = ["# Mesh convergence and domain checks (baseline)", "",
-             "Levels refine the boundary layer by r = 1.5 (docs/mesh.md). GCI after Celik et al. (2008), Fs = 1.25 for a monotone triplet, else p = 1 and Fs = 3.", "",
+             "Levels refine every spacing by r = 1.5 (docs/mesh.md). GCI after Celik et al. (2008), Fs = 1.25 for a monotone triplet, else p = 1 and Fs = 3.", "",
              "| Quantity | coarse | medium | fine | observed order p | extrapolated | GCI medium | GCI coarse |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
     if all(v is not None for v in lv.values()):
-        for q, label in (("cd", "C_D"), ("q_max_shield", "q''_max shield [W/m^2]"), ("q_stag", "q''_stag (axis node) [W/m^2]"), ("q_plateau", "q'' at S/R = 0.2 [W/m^2]"), ("q_shoulder", "q'' shoulder peak [W/m^2]"), ("shock_standoff_D", "shock stand-off / D")):
+        for q, label in (("cd", "C_D"), ("q_max_shield", "q''_max shield (objective) [W/m^2]"), ("q_plateau", "q'' plateau median 0.1-0.5 [W/m^2]"), ("q_shoulder", "q'' shoulder peak [W/m^2]"), ("shock_standoff_D", "shock stand-off / D")):
             vals = {}
             for k, r in lv.items():
                 if q in ("q_plateau", "q_shoulder"):
@@ -387,7 +399,7 @@ def cmd_uncertainty(args):
                     R = 0.5 * meta["params"]["D"]; sP1, sP2 = meta["geometry"]["s_P1"], meta["geometry"]["s_P2"]
                     import numpy as np
                     if q == "q_plateau":
-                        vals[k] = float(np.interp(0.2 * R, w["s"], w["Heat_Flux"]))
+                        vals[k] = float(r["q_plateau"])
                     else:
                         m = (w["s"] >= 0.9 * sP1) & (w["s"] <= sP2)
                         vals[k] = float(w["Heat_Flux"][m].max())
@@ -399,8 +411,8 @@ def cmd_uncertainty(args):
             out["quantities"][q] = {**vals, **{kk: g[kk] for kk in ("p", "monotone", "f_extrapolated", "GCI_fine", "GCI_medium")}, "GCI_coarse": g["GCI_medium"] * (1.5 ** g["p_used"])}
             lines.append(f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | {g['p']:.2f}" if g["p"] else f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | n/a (non-monotone)")
             lines[-1] += f" | {g['f_extrapolated']:.5g} | {100*g['GCI_medium']:.2f} % | {100*out['quantities'][q]['GCI_coarse']:.2f} % |"
-    lines += ["", "## Domain check (coarse level)", "", "| Check | C_D | Δ C_D | q''_max shield | Δ q''_max |", "|---|---:|---:|---:|---:|"]
-    base = lv["coarse"]
+    lines += ["", "## Domain check (medium level, the sweep level)", "", "| Check | C_D | Δ C_D | q''_max shield | Δ q''_max |", "|---|---:|---:|---:|---:|"]
+    base = lv["medium"]
     checks = {}
     if base is not None:
         for name, r in (("far boundary 3.0 D / 7.0 D", far),):
@@ -414,17 +426,18 @@ def cmd_uncertainty(args):
     snap = float(conv["q_max_change_last_window"].max()) if "q_max_change_last_window" in conv and len(conv) else 0.0
     cdflat = float(conv["cd_flatness"].max()) if len(conv) else 0.0
     out["max_snapshot_change_q"] = snap; out["max_cd_flatness"] = cdflat
-    u_cd = max([out["quantities"].get("cd", {}).get("GCI_coarse", 0.0), cdflat] + [c["d_cd_rel"] for c in checks.values()])
-    u_q = max([out["quantities"].get("q_max_shield", {}).get("GCI_coarse", 0.0), snap] + [c["d_q_rel"] for c in checks.values()])
+    u_cd = max([out["quantities"].get("cd", {}).get("GCI_medium", 0.0), cdflat] + [c["d_cd_rel"] for c in checks.values()])
+    u_q = max([out["quantities"].get("q_max_shield", {}).get("GCI_medium", 0.0), snap] + [c["d_q_rel"] for c in checks.values()])
     out["u_cd"] = float(u_cd); out["u_q"] = float(u_q)
-    lines += ["", f"Uncertainty used in the trade-space analysis (coarse level): u_CD = {100*u_cd:.2f} %, u_q = {100*u_q:.2f} % (largest of the coarse-level GCI, the far-boundary sensitivity and the largest residual non-stationarity among converged sweep cases: drag {100*cdflat:.2f} %, peak heating {100*snap:.2f} % between the last two snapshots)."]
+    lines += ["", f"Uncertainty used in the trade-space analysis (medium level): u_CD = {100*u_cd:.2f} %, u_q = {100*u_q:.2f} % (largest of the medium-level GCI, the far-boundary sensitivity and the largest residual non-stationarity among converged sweep cases: drag {100*cdflat:.2f} %, peak heating {100*snap:.2f} % between the last two snapshots)."]
     # cylinder table
     if all(not v.empty for v in cyl.values()):
         lines += ["", "## Cylinder benchmark levels", "", "| Level | cells | C_D (1st order) | q''_stag (1st) [W/m^2] | C_D (2nd) | q''_stag (2nd) | q''_stag / Q_0 (2nd) |", "|---|---:|---:|---:|---:|---:|---:|"]
         for k, r in cyl.items():
             r = r.iloc[0]
             b = os.path.join(r["case_dir"], "benchmark_cylinder.json")
-            s1 = json.load(open(os.path.join(r["case_dir"], "summary_stage1.json"))) if os.path.exists(os.path.join(r["case_dir"], "summary_stage1.json")) else {}
+            s2p = os.path.join(r["case_dir"], "summary_stage2.json")
+            s1 = json.load(open(s2p)) if os.path.exists(s2p) else {}
             lines.append(f"| {k} | {int(r['n_cells'])} | {s1.get('cd', float('nan')):.4f} | {s1.get('q_stag', float('nan')):.0f} | {r['cd']:.4f} | {r['q_stag']:.0f} | {r['q_stag']/721050:.3f} |")
     os.makedirs(RESULTS, exist_ok=True)
     with open(os.path.join(RESULTS, "uncertainty.json"), "w") as fh:
@@ -467,7 +480,8 @@ def cmd_figures(args):
         df.to_csv(os.path.join(RESULTS, "tradespace.csv"), index=False)
         with open(os.path.join(RESULTS, "pareto_analysis.json"), "w") as fh:
             json.dump(analysis, fh, indent=2, default=str)
-        made.append(plots.pareto_plot(df, analysis, u_cd=unc.get("u_cd", 0.0), u_q=unc.get("u_q", 0.0)))
+        unresolved = res[(res["kind"] == "capsule") & (res["status"] == "unresolved_retry")]
+        made.append(plots.pareto_plot(df, analysis, u_cd=unc.get("u_cd", 0.0), u_q=unc.get("u_q", 0.0), unresolved=unresolved))
         sens = sensitivities(df)
         sens.to_csv(os.path.join(RESULTS, "sensitivities.csv"), index=False)
         made.append(plots.sensitivity_plot(sens))

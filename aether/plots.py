@@ -119,7 +119,7 @@ def mesh_study(results: pd.DataFrame, case_prefix: str, name="mesh_study.png"):
 
 
 # ---------------------------------------------------------------- trade space
-def pareto_plot(df: pd.DataFrame, analysis: dict, name="pareto.png", u_cd=0.0, u_q=0.0):
+def pareto_plot(df: pd.DataFrame, analysis: dict, name="pareto.png", u_cd=0.0, u_q=0.0, unresolved=None):
     fig, ax = plt.subplots(figsize=(7, 5))
     groups = {"nose": ("#1f77b4", "nose radius sweep"), "cone": ("#2ca02c", "cone angle sweep"),
               "shoulder": ("#ff7f0e", "shoulder radius sweep"), "combo": ("#9467bd", "combinations"), "": ("#333333", "baseline")}
@@ -131,6 +131,10 @@ def pareto_plot(df: pd.DataFrame, analysis: dict, name="pareto.png", u_cd=0.0, u
                     fmt="o", color=c, label=lab, capsize=2, ms=6 if g else 9, mfc=c if g else "k")
         for _, r in sub.iterrows():
             ax.annotate(r["case_id"], (r["cd"], r["q_max_shield"] / 1e3), textcoords="offset points", xytext=(5, 3), fontsize=8)
+    if unresolved is not None and len(unresolved):
+        ax.plot(unresolved["cd"], unresolved["q_max_shield"] / 1e3, "o", color="0.5", mfc="none", ms=6, label="numerically unresolved (not ranked)")
+        for _, r in unresolved.iterrows():
+            ax.annotate(r["case_id"], (r["cd"], r["q_max_shield"] / 1e3), textcoords="offset points", xytext=(5, 3), fontsize=8, color="0.5")
     nd = df[df["nondominated"]].sort_values("cd")
     ax.plot(nd["cd"], nd["q_max_shield"] / 1e3, "-", color="#d62728", lw=1.2, label="nondominated set")
     for name_, sel in analysis["selections"].items():

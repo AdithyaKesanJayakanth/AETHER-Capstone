@@ -67,6 +67,8 @@ def analyse(results: pd.DataFrame, baseline_id: str = "B00", u_cd: float = 0.0, 
             rules: List[SelectionRule] = DEFAULT_RULES) -> dict:
     df = results[(results["kind"] == "capsule") & (results["status"] == "converged")].copy()
     df = df[df["case_id"].astype(str).str.len() > 0]
+    # the trade space is the sweep plus the baseline at the sweep level; mesh levels and checks are excluded
+    df = df[df["group"].isin(["nose", "cone", "shoulder", "combo"]) | (df["case_id"] == baseline_id)]
     base = df[df["case_id"] == baseline_id]
     if base.empty:
         raise ValueError("baseline not found among converged cases")
@@ -100,7 +102,7 @@ def sensitivities(df: pd.DataFrame, baseline_id: str = "B00") -> pd.DataFrame:
     for _, r in df.iterrows():
         if r["case_id"] == baseline_id:
             continue
-        changed = [p for p in ("Rn_D", "Rs_D", "theta_c_deg") if abs(r[p] - base[p]) > 1e-9]
+        changed = [p for p in ("Rn_D", "Rs_D", "theta_c_deg") if abs(r[p] - base[p]) > 1e-4]
         if len(changed) != 1:
             continue
         p = changed[0]
