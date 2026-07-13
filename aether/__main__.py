@@ -107,11 +107,59 @@ RETRY_SCHEDULES = [   # alternative stage-2 schedules tried when the first SLAU2
 ]
 
 
+STAGE1_RETRY_SCHEDULES = [   # start-up (Roe-fix) stage fallbacks when it does not settle
+    {"CFL_ADAPT_PARAM": "( 0.5, 1.2, 0.5, 10.0, 1e-3, 0 )"},
+    {"CFL_ADAPT_PARAM": "( 0.5, 1.2, 0.5, 5.0, 1e-3, 0 )", "ITER": "4000"},
+]
+
+
+def _stage1_settled(case_dir) -> bool:
+    """The Roe-fix start-up is accepted when its density residual dropped by at least three
+    orders and its stagnation pressure is within 10 % of the pitot value."""
+    try:
+        o = postprocess_case(case_dir, stage=1)
+    except Exception:
+        return False
+    ok = o.get("rms_rho_drop_orders", 0) >= 3.0
+    pr = o.get("p_stag_over_pitot")
+    if pr is not None:
+        ok = ok and 0.9 <= pr <= 1.1
+    return bool(ok)
+
+
 def _run_and_post(case_dir, nproc):
     from .runner import run_stage
     from .su2config import _apply_overrides
-    rec = run_case(case_dir, nproc=nproc)
+    # stage 1 with fallbacks
+    r1 = run_stage(case_dir, 1, nproc=nproc)
+    s1_attempt = 0
+    while (r1["diverged"] or not _stage1_settled(case_dir)) and s1_attempt < len(STAGE1_RETRY_SCHEDULES):
+        tag = f"attempt{s1_attempt}"
+        for f in ("history_stage1.csv", "summary_stage1.json", "stage1.log", "run_stage1.json", "stage1.cfg"):
+            if os.path.exists(os.path.join(case_dir, f)):
+                os.replace(os.path.join(case_dir, f), os.path.join(case_dir, f.replace("stage1", f"stage1_{tag}")))
+        with open(os.path.join(case_dir, f"stage1_{tag}.cfg")) as fh:
+            cfg = fh.read()
+        with open(os.path.join(case_dir, "stage1.cfg"), "w") as fh:
+            fh.write(_apply_overrides(cfg, STAGE1_RETRY_SCHEDULES[s1_attempt]))
+        log(f"{case_dir}: start-up stage not settled; retry {s1_attempt + 1} with {STAGE1_RETRY_SCHEDULES[s1_attempt]}")
+        r1 = run_stage(case_dir, 1, nproc=nproc)
+        s1_attempt += 1
+    if r1["diverged"]:
+        out = postprocess_case(case_dir)
+        out["status"] = "diverged"; out["stage1_attempts"] = s1_attempt + 1
+        with open(os.path.join(case_dir, "summary.json"), "w") as fh:
+            json.dump(out, fh, indent=2)
+        log(f"{case_dir}: start-up stage diverged after {s1_attempt + 1} attempts")
+        return out
+    stage = 2
+    while os.path.exists(os.path.join(case_dir, f"stage{stage}.cfg")):
+        r = run_stage(case_dir, stage, nproc=nproc)
+        if r["diverged"]:
+            break
+        stage += 1
     out = postprocess_case(case_dir)
+    out["stage1_attempts"] = s1_attempt + 1
     attempt = 0
     while out.get("physical_branch") is False and attempt < len(RETRY_SCHEDULES) and os.path.exists(os.path.join(case_dir, "stage2.cfg")):
         # keep the failed attempt's evidence, then retry stage 2 from the same stage-1 state
@@ -297,7 +345,7 @@ def cmd_post(args):
     cols = ["case_id", "group", "phase", "kind", "level", "status", "Rn_D", "Rs_D", "theta_c_deg", "length_D", "volume_m3",
             "n_cells", "binary", "nproc", "su2_version", "iterations", "wall_time_s",
             "rms_rho_drop_orders", "cd_flatness", "maxhf_flatness", "q_max_change_last_window", "physical_branch",
-            "p_stag_over_pitot", "q_axis_over_plateau", "stage2_attempts", "converged", "convective_order",
+            "p_stag_over_pitot", "q_axis_over_plateau", "stage1_attempts", "stage2_attempts", "converged", "convective_order",
             "cd", "cd_integrated", "cd_pressure_integrated", "drag_N", "drag_over_mass",
             "q_stag", "q_plateau", "q_max_shield", "s_q_max_shield", "s_over_R_q_max", "axis_region_clean", "q_axis_region_max", "q_axis_region_min", "q_max_whole_body", "s_q_max_whole_body",
             "q_max", "theta_q_max", "p_stag", "shock_standoff_m", "shock_standoff_D", "invalid_reason", "case_dir"]
