@@ -1,0 +1,17 @@
+{
+  "q_stag_W_m2": 519871.94,
+  "p_stag_Pa": 71390.25,
+  "Q0_report_W_m2": 721050.0,
+  "P0_report_Pa": 72190.0,
+  "q_stag_over_Q0": 0.7209929131128215,
+  "p_stag_over_P0": 0.9889215957888904,
+  "p_stag_over_rayleigh_pitot": 1.0002109304849298,
+  "fay_riddell_2d_W_m2": 494346.30110470403,
+  "q_stag_over_fay_riddell": 1.051635136822617,
+  "q_shape_rms_diff": 0.03670104343200484,
+  "q_shape_max_abs_diff": 0.08811860101191948,
+  "p_shape_rms_diff": 0.023242600567300823,
+  "p_shape_max_abs_diff": 0.05147588164287231,
+  "n_q_points": 34,
+  "n_p_points": 18
+}

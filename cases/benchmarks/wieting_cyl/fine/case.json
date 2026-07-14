@@ -1,0 +1,68 @@
+{
+  "kind": "cylinder",
+  "level": "fine",
+  "conditions": {
+    "name": "wieting_run31_M8",
+    "mach": 8.03,
+    "T_inf": 124.94,
+    "p_inf": 854.95,
+    "radius": 0.0381,
+    "T_wall": 294.44,
+    "Q0": 721050.0,
+    "P0": 72190.0
+  },
+  "mesh_spec": {
+    "level": "fine",
+    "refine_mode": "all",
+    "radius": 0.0381,
+    "n_theta": 140,
+    "theta_max_deg": 105.0,
+    "first_cell": 1e-06,
+    "growth": 1.12,
+    "h_normal_cap": 0.00025,
+    "d_uniform_end_R": 0.7,
+    "n_outer": 20,
+    "stretch_ratio": 1.15,
+    "r_far_R": 3.0,
+    "axis_offset": 0.0
+  },
+  "settings": {
+    "kind": "cylinder",
+    "mach": 8.03,
+    "p_inf": 854.95,
+    "T_inf": 124.94,
+    "T_wall": 294.44,
+    "ref_length": 0.0381,
+    "ref_area": 0.0762,
+    "mesh": "mesh.su2",
+    "n_stages": 3,
+    "venkat": 0.05,
+    "iters": {
+      "1": 2500,
+      "2": 4000,
+      "3": 4000
+    },
+    "cauchy_eps": {
+      "1": 5e-05,
+      "2": 2e-05,
+      "3": 2e-05
+    },
+    "conv_resid": -10.0,
+    "wrt_freq": 500,
+    "extra": {},
+    "stage_extra": {}
+  },
+  "mesh_quality": {
+    "n_cells": 117180,
+    "n_points": 117868,
+    "min_area": 9.8514158744685e-11,
+    "n_negative_area": 0,
+    "min_angle_deg": 89.83333333266872,
+    "max_angle_deg": 90.16666666733298,
+    "max_aspect_ratio": 498.7300393057037,
+    "first_cell_height_min": 4.4444444443603716e-07,
+    "first_cell_height_max": 4.444444444471833e-07,
+    "ni": 316,
+    "nj": 373
+  }
+}

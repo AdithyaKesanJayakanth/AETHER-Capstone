@@ -1,0 +1,12 @@
+{
+  "case_id": "X03",
+  "params": {
+    "D": 0.17577,
+    "Rn_D": 1.20231,
+    "Rs_D": 0.6,
+    "theta_c_deg": 33.0,
+    "rb_D": 0.2,
+    "rf_D": 0.03
+  },
+  "reason": "shoulder radius 0.1055 must be smaller than max radius 0.08789"
+}

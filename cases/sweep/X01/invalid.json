@@ -1,0 +1,12 @@
+{
+  "case_id": "X01",
+  "params": {
+    "D": 0.17577,
+    "Rn_D": 0.45,
+    "Rs_D": 0.05058,
+    "theta_c_deg": 33.0,
+    "rb_D": 0.2,
+    "rf_D": 0.03
+  },
+  "reason": "shoulder does not fit: (R - Rs)/(Rn - Rs) = 1.1252 > 1 (nose radius too small for this shoulder radius)"
+}

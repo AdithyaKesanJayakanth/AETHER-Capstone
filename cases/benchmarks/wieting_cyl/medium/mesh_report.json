@@ -1,0 +1,34 @@
+{
+  "quality": {
+    "n_cells": 52290,
+    "n_points": 52750,
+    "min_area": 2.2165594078076e-10,
+    "n_negative_area": 0,
+    "min_angle_deg": 89.74999999954981,
+    "max_angle_deg": 90.25000000045071,
+    "max_aspect_ratio": 498.7306145573314,
+    "first_cell_height_min": 6.666666666638099e-07,
+    "first_cell_height_max": 6.666666666752605e-07,
+    "ni": 211,
+    "nj": 250
+  },
+  "markers": {
+    "wall": "j0",
+    "symmetry": "i0",
+    "outflow": "iN",
+    "farfield": "jN"
+  },
+  "info": {
+    "kind": "cylinder",
+    "level": "medium",
+    "refine_mode": "all",
+    "ni": 211,
+    "nj": 250,
+    "first_cell_m": 6.666666666666666e-07,
+    "growth": 1.08,
+    "h_normal_shock_m": 0.00016666666666666666,
+    "dtheta_deg": 0.5,
+    "radius": 0.0381,
+    "r_far_R": 3.0
+  }
+}
