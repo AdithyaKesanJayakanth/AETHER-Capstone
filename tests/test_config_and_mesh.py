@@ -84,3 +84,28 @@ def test_gci_recovers_second_order_sequence():
     g = gci(f_exact + c * h1 ** 2, f_exact + c * h2 ** 2, f_exact + c * h3 ** 2, r=1.5)
     assert g["p"] == pytest.approx(2.0, rel=1e-6)
     assert g["f_extrapolated"] == pytest.approx(f_exact, rel=1e-6)
+
+
+def test_restart_roundtrip(tmp_path):
+    import numpy as np
+    from aether.restart import read_restart, write_restart
+    names = ["x", "y", "Density", "Momentum_x", "Momentum_y", "Energy"]
+    data = np.random.default_rng(0).random((7, 6))
+    p = tmp_path / "r.dat"
+    write_restart(str(p), names, data)
+    n2, d2 = read_restart(str(p))
+    assert n2 == names and np.allclose(d2, data)
+    assert p.stat().st_size == 20 + 33 * 6 + 8 * 42
+
+
+def test_gci_orders():
+    from aether.convergence import gci
+    # shrinking differences: observed order recovered
+    g = gci(1.0, 1.0 + 0.1, 1.0 + 0.1 + 0.1 * 1.5 ** 2)
+    assert g["asymptotic"] and abs(g["p"] - 2.0) < 1e-9 and g["Fs_used"] == 1.25
+    # growing differences: negative order, not asymptotic, conservative factors
+    g = gci(105832.0, 110744.0, 113386.0)
+    assert g["monotone"] and not g["asymptotic"] and g["p"] < 0 and g["p_used"] == 1.0 and g["Fs_used"] == 3.0
+    # oscillatory
+    g = gci(1.4615, 1.4628, 1.4620)
+    assert not g["monotone"] and g["p"] is None

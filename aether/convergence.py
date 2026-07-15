@@ -23,11 +23,17 @@ def gci(f1: float, f2: float, f3: float, r: float = 1.5, Fs: float = 1.25) -> di
     e32 = f3 - f2
     out = {"f1": f1, "f2": f2, "f3": f3, "r": r}
     if e21 == 0 or e32 == 0 or (e32 / e21) <= 0:
-        out.update({"monotone": False, "p": None, "p_used": 1.0, "Fs_used": 3.0})
+        out.update({"monotone": False, "asymptotic": False, "p": None, "p_used": 1.0, "Fs_used": 3.0})
+        p = 1.0; Fs = 3.0
+    elif (e32 / e21) < 1.0:
+        # monotone but the differences grow with refinement: observed order negative,
+        # the triplet is not in the asymptotic range; conservative p = 1, Fs = 3
+        p_obs = math.log(e32 / e21) / math.log(r)
+        out.update({"monotone": True, "asymptotic": False, "p": p_obs, "p_used": 1.0, "Fs_used": 3.0})
         p = 1.0; Fs = 3.0
     else:
-        p = abs(math.log(abs(e32 / e21)) / math.log(r))
-        out.update({"monotone": True, "p": p, "p_used": p, "Fs_used": Fs})
+        p = math.log(e32 / e21) / math.log(r)
+        out.update({"monotone": True, "asymptotic": True, "p": p, "p_used": p, "Fs_used": Fs})
     rp = r ** p - 1.0
     f_ext = f1 + (f1 - f2) / rp if rp > 0 else f1
     out["f_extrapolated"] = f_ext
