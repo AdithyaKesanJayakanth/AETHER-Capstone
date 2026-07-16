@@ -68,7 +68,7 @@ def analyse(results: pd.DataFrame, baseline_id: str = "B00", u_cd: float = 0.0, 
     df = results[(results["kind"] == "capsule") & (results["status"] == "converged")].copy()
     df = df[df["case_id"].astype(str).str.len() > 0]
     # the trade space is the sweep plus the baseline at the sweep level; mesh levels and checks are excluded
-    df = df[df["group"].isin(["nose", "cone", "shoulder", "combo"]) | (df["case_id"] == baseline_id)]
+    df = df[df["group"].isin(["nose", "cone", "shoulder", "combo", "extreme"]) | (df["case_id"] == baseline_id)]
     base = df[df["case_id"] == baseline_id]
     if base.empty:
         raise ValueError("baseline not found among converged cases")

@@ -119,10 +119,10 @@ def mesh_study(results: pd.DataFrame, case_prefix: str, name="mesh_study.png"):
 
 
 # ---------------------------------------------------------------- trade space
-def pareto_plot(df: pd.DataFrame, analysis: dict, name="pareto.png", u_cd=0.0, u_q=0.0, unresolved=None):
+def pareto_plot(df: pd.DataFrame, analysis: dict, name="pareto.png", u_cd=0.0, u_q=0.0, unresolved=None, failed=None):
     fig, ax = plt.subplots(figsize=(7, 5))
     groups = {"nose": ("#1f77b4", "nose radius sweep"), "cone": ("#2ca02c", "cone angle sweep"),
-              "shoulder": ("#ff7f0e", "shoulder radius sweep"), "combo": ("#9467bd", "combinations"), "": ("#333333", "baseline")}
+              "shoulder": ("#ff7f0e", "shoulder radius sweep"), "combo": ("#9467bd", "combinations"), "extreme": ("#8c564b", "off-range extreme"), "": ("#333333", "baseline")}
     for g, (c, lab) in groups.items():
         sub = df[df["group"].fillna("") == g]
         if sub.empty:
@@ -130,10 +130,18 @@ def pareto_plot(df: pd.DataFrame, analysis: dict, name="pareto.png", u_cd=0.0, u
         ax.errorbar(sub["cd"], sub["q_max_shield"] / 1e3, xerr=u_cd * sub["cd"], yerr=u_q * sub["q_max_shield"] / 1e3,
                     fmt="o", color=c, label=lab, capsize=2, ms=6 if g else 9, mfc=c if g else "k")
         for _, r in sub.iterrows():
-            ax.annotate(r["case_id"], (r["cd"], r["q_max_shield"] / 1e3), textcoords="offset points", xytext=(5, 3), fontsize=8)
+            sup = "" if str(r.get("family", "B")) == "B" else "\u2020"
+            ax.annotate(r["case_id"] + sup, (r["cd"], r["q_max_shield"] / 1e3), textcoords="offset points", xytext=(5, 3), fontsize=8)
+    if "family" in df and (df["family"].astype(str) != "B").any():
+        ax.text(0.01, 0.01, "\u2020 computed on mesh family C (aspect ratio 2 in the shock region); baseline offset included in the margins",
+                transform=ax.transAxes, fontsize=7, color="0.3", va="bottom")
     if unresolved is not None and len(unresolved):
         ax.plot(unresolved["cd"], unresolved["q_max_shield"] / 1e3, "o", color="0.5", mfc="none", ms=6, label="numerically unresolved (not ranked)")
         for _, r in unresolved.iterrows():
+            ax.annotate(r["case_id"], (r["cd"], r["q_max_shield"] / 1e3), textcoords="offset points", xytext=(5, 3), fontsize=8, color="0.5")
+    if failed is not None and len(failed):
+        ax.plot(failed["cd"], failed["q_max_shield"] / 1e3, "x", color="0.5", ms=6, label="not converged (not ranked)")
+        for _, r in failed.iterrows():
             ax.annotate(r["case_id"], (r["cd"], r["q_max_shield"] / 1e3), textcoords="offset points", xytext=(5, 3), fontsize=8, color="0.5")
     nd = df[df["nondominated"]].sort_values("cd")
     ax.plot(nd["cd"], nd["q_max_shield"] / 1e3, "-", color="#d62728", lw=1.2, label="nondominated set")

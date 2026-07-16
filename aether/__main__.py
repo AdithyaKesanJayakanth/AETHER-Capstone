@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import glob
 import json
+import re
 import os
 import sys
 import time
@@ -120,19 +122,30 @@ def _stage1_settled(case_dir) -> bool:
         o = postprocess_case(case_dir, stage=1)
     except Exception:
         return False
-    ok = o.get("rms_rho_drop_orders", 0) >= 3.0
+    drop = o.get("rms_rho_drop_orders", 0) or 0
+    # three orders, or the Cauchy criterion stopped the run with flat drag after at least two orders
+    ok = drop >= 3.0 or (drop >= 2.0 and o.get("status") == "converged" and (o.get("cd_flatness") or 1) < 2e-3)
     pr = o.get("p_stag_over_pitot")
     if pr is not None:
         ok = ok and 0.9 <= pr <= 1.1
     return bool(ok)
 
 
-def _run_and_post(case_dir, nproc):
+def _run_and_post(case_dir, nproc, resume=False):
     from .runner import run_stage
     from .su2config import _apply_overrides
-    # stage 1 with fallbacks
-    r1 = run_stage(case_dir, 1, nproc=nproc)
-    s1_attempt = 0
+    # stage 1 with fallbacks (resume: keep an existing settled start-up stage)
+    r1 = None
+    if resume and os.path.exists(os.path.join(case_dir, "run_stage1.json")):
+        with open(os.path.join(case_dir, "run_stage1.json")) as fh:
+            r1 = json.load(fh)
+        if r1.get("diverged") or not _stage1_settled(case_dir):
+            r1 = None
+        else:
+            log(f"{case_dir}: resuming after the existing start-up stage")
+    if r1 is None:
+        r1 = run_stage(case_dir, 1, nproc=nproc)
+    s1_attempt = len(glob.glob(os.path.join(case_dir, "stage1_attempt*.cfg")))
     while (r1["diverged"] or not _stage1_settled(case_dir)) and s1_attempt < len(STAGE1_RETRY_SCHEDULES):
         tag = f"attempt{s1_attempt}"
         for f in ("history_stage1.csv", "summary_stage1.json", "stage1.log", "run_stage1.json", "stage1.cfg"):
@@ -161,7 +174,8 @@ def _run_and_post(case_dir, nproc):
     out = postprocess_case(case_dir)
     out["stage1_attempts"] = s1_attempt + 1
     attempt = 0
-    while out.get("physical_branch") is False and attempt < len(RETRY_SCHEDULES) and os.path.exists(os.path.join(case_dir, "stage2.cfg")):
+    max_retries = int(os.environ.get("AETHER_MAX_RETRIES", len(RETRY_SCHEDULES)))
+    while out.get("physical_branch") is False and attempt < min(max_retries, len(RETRY_SCHEDULES)) and os.path.exists(os.path.join(case_dir, "stage2.cfg")):
         # keep the failed attempt's evidence, then retry stage 2 from the same stage-1 state
         tag = f"attempt{attempt}"
         for f in ("history_stage2.csv", "summary_stage2.json", "stage2.log", "run_stage2.json", "stage2.cfg"):
@@ -191,22 +205,46 @@ def cmd_benchmark_cyl(args):
         _run_and_post(d, args.nproc)
 
 
+MESH_VARIANTS = {
+    # tangential cap spacing 1.5 x the family value, shock-normal spacing unchanged: cells elongated
+    # along the bow shock (aspect ratio 1.5 instead of 1), which suppresses the carbuncle mode
+    "t15": {"h_cap": 1.2e-3},
+    # stronger elongation (aspect ratio 2) tried only for shapes that stay on the carbuncle branch on t15
+    "t20": {"h_cap": 1.6e-3},
+}
+
+
+def _variant_of(args):
+    v = getattr(args, "mesh_variant", None)
+    return (v, dict(MESH_VARIANTS[v])) if v else (None, {})
+
+
 def cmd_baseline(args):
+    v, over = _variant_of(args)
     for level in args.levels:
-        d = os.path.join(CASES, "baseline", level)
+        cid = "B00" if level == "medium" else f"B00_{level}"
+        if v:
+            cid = f"{cid}_{v}"; d = os.path.join(CASES, "variant", cid); group = "variant_baseline"
+        else:
+            d = os.path.join(CASES, "baseline", level); group = "baseline"
         if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
             log(f"skip {d}"); continue
-        build_capsule_case(d, baseline_params(), level, case_id="B00" if level == "medium" else f"B00_{level}", group="baseline")
+        build_capsule_case(d, baseline_params(), level, spec_overrides=over or None, case_id=cid, group=group)
         _run_and_post(d, args.nproc)
 
 
 def cmd_domain_check(args):
+    v, over = _variant_of(args)
     checks = {"base_far": {"d_far_nose_D": 3.0, "d_far_wake_D": 7.0}}
     for name, spec in checks.items():
-        d = os.path.join(CASES, "domain_check", name)
+        cid = f"B00_{name}"
+        if v:
+            cid = f"{cid}_{v}"; d = os.path.join(CASES, "variant", cid); group = "variant_check"
+        else:
+            d = os.path.join(CASES, "domain_check", name); group = "check"
         if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
             log(f"skip {d}"); continue
-        build_capsule_case(d, baseline_params(), "medium", case_id=f"B00_{name}", group="check", spec_overrides=spec)
+        build_capsule_case(d, baseline_params(), "medium", case_id=cid, group=group, spec_overrides={**over, **spec})
         _run_and_post(d, args.nproc)
 
 
@@ -218,20 +256,29 @@ def cmd_sweep(args):
     base = baseline_params()
     failures = os.path.join(RESULTS, "invalid_cases.csv")
     os.makedirs(RESULTS, exist_ok=True)
-    for c in sw["cases"]:
+    variant = getattr(args, "mesh_variant", None)
+    cases = list(sw["cases"])
+    if variant:
+        cases = [{**sw["baseline"], "group": "baseline"}] + cases
+    for c in cases:
         if args.phase and int(c.get("phase", 1)) != args.phase:
             continue
         if c.get("enabled") is False:
             continue
         if args.only and c["id"] not in args.only:
             continue
-        d = os.path.join(CASES, "sweep", c["id"])
+        cid, group, spec_over = c["id"], c.get("group", ""), None
+        if variant:
+            cid, group, spec_over = f"{c['id']}_{variant}", "variant", MESH_VARIANTS[variant]
+            d = os.path.join(CASES, "variant", cid)
+        else:
+            d = os.path.join(CASES, "sweep", c["id"])
         if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
-            log(f"skip {c['id']}"); continue
+            log(f"skip {cid}"); continue
         params = CapsuleParams(D=base.D, Rn_D=float(c["Rn_D"]), Rs_D=float(c["Rs_D"]),
                                theta_c_deg=float(c["theta_c"]), rb_D=base.rb_D)
         try:
-            build_capsule_case(d, params, level, case_id=c["id"], group=c.get("group", ""), phase=int(c.get("phase", 1)))
+            build_capsule_case(d, params, level, spec_overrides=spec_over, case_id=cid, group=group, phase=int(c.get("phase", 1)))
         except InvalidGeometry as e:
             log(f"{c['id']}: INVALID geometry: {e}")
             os.makedirs(d, exist_ok=True)
@@ -244,6 +291,13 @@ def cmd_sweep(args):
             log(f"{c['id']}: run failed\n" + traceback.format_exc())
 
 
+def cmd_resume(args):
+    """Continue selected case directories from their existing start-up stage (stage 2 and the branch retries)."""
+    for d in args.dirs:
+        d = os.path.join(ROOT, d) if not os.path.isabs(d) else d
+        _run_and_post(d, args.nproc, resume=True)
+
+
 def cmd_refine(args):
     """Re-run selected sweep cases on finer levels (ranking stability of the finalists)."""
     import yaml
@@ -252,28 +306,79 @@ def cmd_refine(args):
     base = baseline_params()
     table = {c["id"]: c for c in sw["cases"]}
     table[sw["baseline"]["id"]] = {**sw["baseline"], "group": "baseline"}
+    v, over = _variant_of(args)
     for cid in args.ids:
         c = table[cid]
         params = CapsuleParams(D=base.D, Rn_D=float(c["Rn_D"]), Rs_D=float(c["Rs_D"]), theta_c_deg=float(c["theta_c"]), rb_D=base.rb_D)
         for level in args.levels:
-            d = os.path.join(CASES, "refine", f"{cid}_{level}")
+            name = f"{cid}_{level}" + (f"_{v}" if v else "")
+            d = os.path.join(CASES, "variant" if v else "refine", name)
             if args.skip_done and os.path.exists(os.path.join(d, "summary.json")):
                 log(f"skip {d}"); continue
-            build_capsule_case(d, params, level, case_id=f"{cid}_{level}", group="refine", phase=3)
+            build_capsule_case(d, params, level, spec_overrides=over or None, case_id=name, group="variant_refine" if v else "refine", phase=3)
             _run_and_post(d, args.nproc)
+
+
+def _find_case_dir(cid: str) -> str:
+    for d in (os.path.join(CASES, "sweep", cid), os.path.join(CASES, "refine", cid),
+              os.path.join(CASES, "baseline", cid.replace("B00_", "")) if cid.startswith("B00_") else "",
+              os.path.join(CASES, "baseline", "medium") if cid == "B00" else ""):
+        if d and os.path.isdir(d):
+            return d
+    raise FileNotFoundError(f"no case directory for {cid}")
+
+
+def cmd_reinit(args):
+    """Re-run the analysis stage of selected cases initialised from a converged neighbouring
+    solution interpolated onto the case mesh (solution sequencing), with the standard stage-2
+    schedule. Earlier attempts are kept as stage2_attempt*; the summary records the source."""
+    from .restart import interpolate_restart
+    from .runner import run_stage
+    from .su2config import STAGES, _apply_overrides
+    for cid in args.ids:
+        case_dir = _find_case_dir(cid)
+        if args.source:
+            src_dir = _find_case_dir(args.source)
+        elif cid.endswith("_fine") or cid.endswith("_medium"):
+            src_dir = _find_case_dir(cid.rsplit("_", 1)[0] if not cid.startswith("B00") else "B00")
+        else:
+            src_dir = _find_case_dir("B00")
+        src = os.path.join(src_dir, "restart_stage2.dat")
+        rec = interpolate_restart(src, os.path.join(case_dir, "mesh.su2"), os.path.join(case_dir, "restart_init.dat"))
+        log(f"{case_dir}: initial solution interpolated from {src_dir} ({rec['n_source']} -> {rec['n_target']} points, {rec['n_outside_hull']} outside the source hull)")
+        k = len(glob.glob(os.path.join(case_dir, "stage2_attempt*.cfg")))
+        tag = f"attempt{k}"
+        for f in ("history_stage2.csv", "summary_stage2.json", "stage2.log", "run_stage2.json", "stage2.cfg"):
+            if os.path.exists(os.path.join(case_dir, f)):
+                os.replace(os.path.join(case_dir, f), os.path.join(case_dir, f.replace("stage2", f"stage2_{tag}")))
+        with open(os.path.join(case_dir, f"stage2_{tag}.cfg")) as fh:
+            cfg = fh.read()
+        st = STAGES[2]
+        over = {"SOLUTION_FILENAME": "restart_init.dat", "CFL_ADAPT": st["cfl_adapt"], "CFL_NUMBER": st["cfl"],
+                "CFL_ADAPT_PARAM": f"( 0.5, 1.2, {st['cfl_min']}, {st['cfl_max']}, 1e-3, 0 )", "ITER": str(args.iter)}
+        with open(os.path.join(case_dir, "stage2.cfg"), "w") as fh:
+            fh.write(_apply_overrides(cfg, over))
+        run_stage(case_dir, 2, nproc=args.nproc)
+        out = postprocess_case(case_dir)
+        out["stage2_attempts"] = k + 2
+        out["stage2_init_from"] = os.path.relpath(src_dir, ROOT)
+        out["stage2_init_interp"] = rec
+        with open(os.path.join(case_dir, "summary.json"), "w") as fh:
+            json.dump(out, fh, indent=2)
+        log(f"{case_dir}: status={out.get('status')} CD={out.get('cd')} qmax={out.get('q_max_shield')} p/pitot={out.get('p_stag_over_pitot')} plateau={out.get('q_plateau')}")
 
 
 def cmd_fields(args):
     """ParaView field figures for the baseline and the designs named in results/pareto_analysis.json."""
     import subprocess
     pv = "/Applications/ParaView-6.2.0.app/Contents/bin/pvpython"
-    picks = {"baseline": os.path.join(CASES, "baseline", "coarse")}
+    fam = getattr(args, "family", DEFAULT_FAMILY)
+    res = family_results(fam)
+    picks = {"baseline": res[(res["case_id"] == "B00") & (res["role"] == "baseline")]["case_dir"].iloc[0]}
     pa = os.path.join(RESULTS, "pareto_analysis.json")
     if os.path.exists(pa):
         with open(pa) as fh:
             a = json.load(fh)
-        import pandas as pd
-        res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
         for lab, cid in (("highest_drag", a["highest_drag"]), ("lowest_heating", a["lowest_heating"]),
                          ("compromise", (a["selections"].get("lowest_q_at_98pct_drag") or {}).get("case_id"))):
             if cid and cid != "B00":
@@ -291,19 +396,24 @@ def cmd_fields(args):
 def cmd_tables(args):
     """Markdown tables for the report -> results/tables.md"""
     import pandas as pd
-    res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
-    L = ["# Result tables (generated by `python -m aether tables`)", ""]
-    cap = res[res["kind"] == "capsule"].copy()
+    fam = getattr(args, "family", DEFAULT_FAMILY)
+    res_all = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+    res = family_results(fam)
+    L = [f"# Result tables (generated by `python -m aether tables`; mesh family {fam})", ""]
+    cap = res[res["kind"] == "capsule"].copy()           # production family plus its supplement rows
+    inv = res_all[res_all["role"] == "invalid"].copy()
+    inv["case_id"] = inv["base_id"]
+    cap = pd.concat([cap, inv], ignore_index=True)
     def f(v, fmt):
         try:
             return fmt.format(v) if v == v else "—"
         except Exception:
             return "—"
     # 1. every capsule case
-    L += ["## All capsule cases", "", "| case | group | level | R_n/D | R_s/D | θ_c [°] | L/D | status | stage-2 attempts | C_D | q''_max shield [kW/m²] | S/R of q''_max | q'' plateau [kW/m²] | p_stag/pitot | stand-off / D |",
-          "|---|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|"]
+    L += ["## All capsule cases", "", "| case | group | family | level | R_n/D | R_s/D | θ_c [°] | L/D | status | stage-2 attempts | C_D | q''_max shield [kW/m²] | S/R of q''_max | q'' plateau [kW/m²] | p_stag/pitot | stand-off / D |",
+          "|---|---|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|"]
     for _, r in cap.sort_values(["group", "case_id", "level"]).iterrows():
-        L.append(f"| {r['case_id']} | {r.get('group','')} | {r['level'] if r['level']==r['level'] else '—'} | {f(r['Rn_D'],'{:.3f}')} | {f(r['Rs_D'],'{:.4f}')} | {f(r['theta_c_deg'],'{:.0f}')} | {f(r['length_D'],'{:.3f}')} | {r['status']} | {f(r.get('stage2_attempts', float('nan')),'{:.0f}') if r.get('stage2_attempts', float('nan')) == r.get('stage2_attempts', float('nan')) else '1'} | {f(r['cd'],'{:.4f}')} | {f(r['q_max_shield']/1e3 if r['q_max_shield']==r['q_max_shield'] else float('nan'),'{:.1f}')} | {f(r['s_over_R_q_max'],'{:.3f}')} | {f(r['q_plateau']/1e3 if r['q_plateau']==r['q_plateau'] else float('nan'),'{:.1f}')} | {f(r['p_stag_over_pitot'],'{:.3f}')} | {f(r['shock_standoff_D'],'{:.3f}')} |")
+        L.append(f"| {r['case_id']} | {r.get('group','')} | {r.get('family','')} | {r['level'] if r['level']==r['level'] else '—'} | {f(r['Rn_D'],'{:.3f}')} | {f(r['Rs_D'],'{:.4f}')} | {f(r['theta_c_deg'],'{:.0f}')} | {f(r['length_D'],'{:.3f}')} | {r['status']} | {f(r.get('stage2_attempts', float('nan')),'{:.0f}') if r.get('stage2_attempts', float('nan')) == r.get('stage2_attempts', float('nan')) else '1'} | {f(r['cd'],'{:.4f}')} | {f(r['q_max_shield']/1e3 if r['q_max_shield']==r['q_max_shield'] else float('nan'),'{:.1f}')} | {f(r['s_over_R_q_max'],'{:.3f}')} | {f(r['q_plateau']/1e3 if r['q_plateau']==r['q_plateau'] else float('nan'),'{:.1f}')} | {f(r['p_stag_over_pitot'],'{:.3f}')} | {f(r['shock_standoff_D'],'{:.3f}')} |")
     # 2. section-8 summary table
     pa = os.path.join(RESULTS, "pareto_analysis.json")
     if os.path.exists(pa):
@@ -319,20 +429,105 @@ def cmd_tables(args):
         def row(name, key, fmt, scale=1.0):
             L.append(f"| {name} | " + " | ".join(f(rows[k][key] * scale, fmt) if rows[k] is not None else "—" for k in cols) + " |")
         L.append("| Case id | " + " | ".join(str(c) for c in cols.values()) + " |")
+        L.append("| Mesh family | " + " | ".join(str(rows[k]["family"]) if rows[k] is not None else "—" for k in cols) + " |")
         row("Nose radius R_n/D", "Rn_D", "{:.3f}"); row("Rear-body cone angle θ_c [°]", "theta_c_deg", "{:.0f}"); row("Shoulder radius R_s/D", "Rs_D", "{:.4f}")
         row("Drag coefficient C_D", "cd", "{:.4f}"); row("Drag force [N] (model scale)", "drag_N", "{:.1f}"); row("Peak heat flux on shield [kW/m²]", "q_max_shield", "{:.1f}", 1e-3)
         row("Peak-heating location S/R", "s_over_R_q_max", "{:.3f}"); row("Shock stand-off / D", "shock_standoff_D", "{:.3f}")
         L.append("| Mesh/convergence checks passed? | " + " | ".join(("yes" if rows[k] is not None and rows[k]["status"] == "converged" else "no") for k in cols) + " |")
+    # 3. mesh-family cross-check: every design converged in both families
+    fams = {f: res_all[(res_all["family"] == f) & (res_all["kind"] == "capsule") & (res_all["status"] == "converged")].set_index("base_id") for f in ("A", "B", "C")}
+    for other in ("A", "C"):
+        a, b = fams[other], fams["B"]
+        both = [i for i in b.index if i in a.index]
+        if not both:
+            continue
+        L += ["", f"## Mesh-family cross-check: family {other} against family B (shapes converged on both)", "",
+              f"| case | C_D ({other}) | C_D (B) | Δ C_D | q''_max ({other}) [kW/m²] | q''_max (B) [kW/m²] | Δ q''_max | plateau ({other}) | plateau (B) |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        for i in sorted(both):
+            ra, rb = a.loc[i], b.loc[i]
+            if isinstance(ra, pd.DataFrame): ra = ra.iloc[0]
+            if isinstance(rb, pd.DataFrame): rb = rb.iloc[0]
+            L.append(f"| {i} | {ra['cd']:.4f} | {rb['cd']:.4f} | {100*(rb['cd']/ra['cd']-1):+.2f} % | {ra['q_max_shield']/1e3:.1f} | {rb['q_max_shield']/1e3:.1f} | {100*(rb['q_max_shield']/ra['q_max_shield']-1):+.1f} % | {ra['q_plateau']/1e3:.1f} | {rb['q_plateau']/1e3:.1f} |")
+    L += ["", "Family A: isotropic cells in the shock region (first family); family B (production): cap spacing 1.5 × the shock-normal spacing (cells elongated along the bow shock); family C: cap spacing 2 × the shock-normal spacing, used only for the shape that stays on the carbuncle branch on family B (S03) and for its baseline control. Family-A cases that reached the physical branch only through low-CFL retries are not listed (status `unresolved_retry`)."]
     with open(os.path.join(RESULTS, "tables.md"), "w") as fh:
         fh.write("\n".join(L) + "\n")
     log("wrote results/tables.md")
 
 
+FAMILIES = {"A": "", "B": "_t15", "C": "_t20"}      # mesh families: A = isotropic shock cells (first family), B = t15 (production)
+DEFAULT_FAMILY = "B"
+
+
+def _tag_family(row: dict, sweep_groups: dict) -> None:
+    """Add family (A/B), base_id (case id without the family suffix) and role (sweep/baseline/check/refine)."""
+    cid = str(row.get("case_id") or "")
+    fam, suffix = "A", ""
+    for f, suf in FAMILIES.items():
+        if suf and cid.endswith(suf):
+            fam, suffix = f, suf
+    base = cid[: -len(suffix)] if suffix else cid
+    row["family"] = fam; row["base_id"] = base
+    g = str(row.get("group") or "")
+    if g in ("baseline", "variant_baseline") or (base.startswith("B00") and "base_far" not in base):
+        role = "baseline"; row["group"] = "baseline"
+    elif g in ("check", "variant_check") or base.startswith("B00_base_far"):
+        role = "check"; row["group"] = "check"
+    elif g in ("refine", "variant_refine"):
+        role = "refine"
+    elif g == "invalid":
+        role = "invalid"
+    else:
+        role = "sweep"
+    row["role"] = role
+    if role == "sweep":
+        row["group"] = sweep_groups.get(base, g if g != "variant" else "")
+    elif role == "refine":
+        row["group"] = "refine"
+
+
+def _sweep_groups() -> dict:
+    import yaml
+    with open(os.path.join(ROOT, "configs", "sweep.yaml")) as fh:
+        sw = yaml.safe_load(fh)
+    return {c["id"]: c.get("group", "") for c in sw["cases"]}
+
+
+SUPPLEMENT = {"B": "C"}     # family C (aspect ratio 2) supplies the shapes that stay on the carbuncle branch on family B
+
+
+def family_results(fam: str = DEFAULT_FAMILY):
+    """results.csv restricted to one mesh family, with case_id = base_id so that B00, B00_coarse,
+    B00_fine, B00_base_far and <id>_fine name the same roles in every family. For the production
+    family, a sweep shape (or its refinement) without a converged result is supplemented by the
+    converged result of the supplement family; the 'family' column records where each row came from."""
+    import pandas as pd
+    res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+    cyl = res[res["kind"] == "cylinder"]
+    df = res[(res["family"] == fam) & (res["kind"] != "cylinder")].copy()
+    sup = SUPPLEMENT.get(fam)
+    if sup:
+        have = set(df[(df["status"] == "converged")]["base_id"])
+        extra = res[(res["family"] == sup) & (res["kind"] != "cylinder") & (res["status"] == "converged")
+                    & (res["role"].isin(["sweep", "refine"])) & (~res["base_id"].isin(have))]
+        df = df[~df["base_id"].isin(set(extra["base_id"]))]
+        df = pd.concat([df, extra], ignore_index=True)
+    df["case_id"] = df["base_id"]
+    return pd.concat([df, cyl], ignore_index=True)
+
+
 def cmd_post(args):
     rows = []
+    sweep_groups = _sweep_groups()
     for root, dirs, files in os.walk(CASES):
         if "case.json" in files:
             try:
+                # a case whose last stage has a configuration but no run record is still running (or was aborted)
+                stages = sorted(int(f[5]) for f in files if re.fullmatch(r"stage\d\.cfg", f))
+                if stages and f"run_stage{stages[-1]}.json" not in files:
+                    rows.append({"case_dir": root, "case_id": json.load(open(os.path.join(root, "case.json"))).get("case_id", ""),
+                                 "kind": "capsule", "status": "running", "group": json.load(open(os.path.join(root, "case.json"))).get("group", "")})
+                    _tag_family(rows[-1], sweep_groups)
+                    continue
                 row = postprocess_case(root)
                 # sweep cases are ranked only when the analysis stage converged at the first attempt:
                 # retried solutions reach the physical branch only at low CFL and their heating level is
@@ -343,7 +538,15 @@ def cmd_post(args):
                 for k in ("stage1_attempts", "stage2_attempts"):
                     if k in saved:
                         row[k] = saved[k]
-                if row.get("group") in ("nose", "cone", "shoulder", "combo") and row.get("status") == "converged" and row.get("stage2_attempts", 1) > 1:
+                # the attempt count is also recoverable from the renamed files of earlier attempts
+                for n in (1, 2):
+                    n_prev = len(glob.glob(os.path.join(root, f"stage{n}_attempt*.cfg")))
+                    row[f"stage{n}_attempts"] = max(int(row.get(f"stage{n}_attempts") or 1), n_prev + 1)
+                row["stage2_init_from"] = saved.get("stage2_init_from", "")
+                _tag_family(row, sweep_groups)
+                if row["role"] in ("sweep", "refine", "baseline", "check") and row.get("stage2_attempts", 1) > 1 \
+                        and not saved.get("stage2_init_from"):
+                    row["final_attempt_status"] = row.get("status")
                     row["status"] = "unresolved_retry"
                 rows.append(row)
             except Exception as e:
@@ -351,19 +554,24 @@ def cmd_post(args):
         elif "invalid.json" in files:
             with open(os.path.join(root, "invalid.json")) as fh:
                 inv = json.load(fh)
-            rows.append({"case_dir": root, "case_id": inv["case_id"], "kind": "capsule", "status": "invalid_geometry", "group": "invalid",
-                         "Rn_D": inv["params"]["Rn_D"], "Rs_D": inv["params"]["Rs_D"],
-                         "theta_c_deg": inv["params"]["theta_c_deg"], "invalid_reason": inv["reason"]})
-    cols = ["case_id", "group", "phase", "kind", "level", "status", "Rn_D", "Rs_D", "theta_c_deg", "length_D", "volume_m3",
+            row = {"case_dir": root, "case_id": inv["case_id"], "kind": "capsule", "status": "invalid_geometry", "group": "invalid",
+                   "Rn_D": inv["params"]["Rn_D"], "Rs_D": inv["params"]["Rs_D"],
+                   "theta_c_deg": inv["params"]["theta_c_deg"], "invalid_reason": inv["reason"]}
+            _tag_family(row, sweep_groups)
+            rows.append(row)
+    cols = ["case_id", "family", "base_id", "role", "group", "phase", "kind", "level", "status", "Rn_D", "Rs_D", "theta_c_deg", "length_D", "volume_m3",
             "n_cells", "binary", "nproc", "su2_version", "iterations", "wall_time_s",
             "rms_rho_drop_orders", "cd_flatness", "maxhf_flatness", "q_max_change_last_window", "physical_branch",
-            "p_stag_over_pitot", "q_axis_over_plateau", "stage1_attempts", "stage2_attempts", "converged", "convective_order",
+            "p_stag_over_pitot", "q_axis_over_plateau", "stage1_attempts", "stage2_attempts", "final_attempt_status", "stage2_init_from", "converged", "convective_order",
             "cd", "cd_integrated", "cd_pressure_integrated", "drag_N", "drag_over_mass",
             "q_stag", "q_plateau", "q_max_shield", "s_q_max_shield", "s_over_R_q_max", "axis_region_clean", "q_axis_region_max", "q_axis_region_min", "q_max_whole_body", "s_q_max_whole_body",
             "q_max", "theta_q_max", "p_stag", "shock_standoff_m", "shock_standoff_D", "invalid_reason", "case_dir"]
     extra = sorted({k for r in rows for k in r} - set(cols))
     os.makedirs(RESULTS, exist_ok=True)
-    rows.sort(key=lambda r: (r.get("kind", ""), r.get("case_id", ""), r.get("level", "")))
+    for r in rows:
+        if r.get("kind") == "cylinder" or "family" not in r:
+            r.setdefault("family", "A"); r.setdefault("base_id", r.get("case_id", "")); r.setdefault("role", r.get("kind", ""))
+    rows.sort(key=lambda r: (r.get("kind", ""), r.get("family", ""), r.get("case_id", ""), r.get("level", "")))
     with open(os.path.join(RESULTS, "results.csv"), "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols + extra)
         w.writeheader()
@@ -377,17 +585,18 @@ def cmd_uncertainty(args):
     docs/mesh_convergence.md table."""
     import pandas as pd
     from .convergence import gci, two_grid_uncertainty
-    res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
-    out = {"quantities": {}}
+    fam = getattr(args, "family", DEFAULT_FAMILY)
+    res = family_results(fam)
+    out = {"family": fam, "quantities": {}}
     def pick(cid):
         r = res[res["case_id"] == cid]
         return None if r.empty else r.iloc[0]
     lv = {k: pick(c) for k, c in (("coarse", "B00_coarse"), ("medium", "B00"), ("fine", "B00_fine"))}
     cyl = {k: res[(res["kind"] == "cylinder") & (res["level"] == k)] for k in ("coarse", "medium", "fine")}
     far = pick("B00_base_far")
-    lines = ["# Mesh convergence and domain checks (baseline)", "",
-             "Levels refine every spacing by r = 1.5 (docs/mesh.md). GCI after Celik et al. (2008), Fs = 1.25 for a monotone triplet, else p = 1 and Fs = 3.", "",
-             "| Quantity | coarse | medium | fine | observed order p | extrapolated | GCI medium | GCI coarse |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
+    lines = [f"# Mesh convergence and domain checks (baseline, mesh family {fam})", "",
+             "Levels refine every spacing by r = 1.5 (docs/mesh.md). GCI after Celik et al. (2008): Fs = 1.25 with the observed order when the triplet converges monotonically with shrinking differences; otherwise (oscillatory, or differences that grow with refinement, i.e. a negative observed order) the triplet is outside the asymptotic range and the conservative p = 1, Fs = 3 is used. GCI_fine is the uncertainty of the fine-level value, GCI_medium that of the medium-level (sweep) value.", "",
+             "| Quantity | coarse | medium | fine | observed order p | extrapolated | GCI fine | GCI medium |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
     if all(v is not None for v in lv.values()):
         for q, label in (("cd", "C_D"), ("q_max_shield", "q''_max shield (objective) [W/m^2]"), ("q_plateau", "q'' plateau median 0.1-0.5 [W/m^2]"), ("q_shoulder", "q'' shoulder peak [W/m^2]"), ("shock_standoff_D", "shock stand-off / D")):
             vals = {}
@@ -408,9 +617,15 @@ def cmd_uncertainty(args):
             if any(v is None for v in vals.values()):
                 continue
             g = gci(vals["fine"], vals["medium"], vals["coarse"], r=1.5)
-            out["quantities"][q] = {**vals, **{kk: g[kk] for kk in ("p", "monotone", "f_extrapolated", "GCI_fine", "GCI_medium")}, "GCI_coarse": g["GCI_medium"] * (1.5 ** g["p_used"])}
-            lines.append(f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | {g['p']:.2f}" if g["p"] else f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | n/a (non-monotone)")
-            lines[-1] += f" | {g['f_extrapolated']:.5g} | {100*g['GCI_medium']:.2f} % | {100*out['quantities'][q]['GCI_coarse']:.2f} % |"
+            out["quantities"][q] = {**vals, **{kk: g[kk] for kk in ("p", "p_used", "Fs_used", "monotone", "asymptotic", "f_extrapolated", "GCI_fine", "GCI_medium")}, "GCI_coarse": g["GCI_medium"] * (1.5 ** g["p_used"])}
+            if g["p"] is None:
+                ptxt = "n/a (oscillatory)"
+            elif not g["asymptotic"]:
+                ptxt = f"{g['p']:.2f} (not asymptotic)"
+            else:
+                ptxt = f"{g['p']:.2f}"
+            ext = f"{g['f_extrapolated']:.5g}" if g["asymptotic"] else "n/a"
+            lines.append(f"| {label} | {vals['coarse']:.5g} | {vals['medium']:.5g} | {vals['fine']:.5g} | {ptxt} | {ext} | {100*g['GCI_fine']:.2f} % | {100*g['GCI_medium']:.2f} % |")
     lines += ["", "## Domain check (medium level, the sweep level)", "", "| Check | C_D | Δ C_D | q''_max shield | Δ q''_max |", "|---|---:|---:|---:|---:|"]
     base = lv["medium"]
     checks = {}
@@ -422,14 +637,66 @@ def cmd_uncertainty(args):
             lines.append(f"| {name} | {r['cd']:.4f} | {100*dcd:.2f} % | {r['q_max_shield']:.0f} | {100*dq:.2f} % |")
     out["checks"] = checks
     # uncertainty for the trade space: larger of base-level GCI and the shock-spacing sensitivity
-    conv = res[(res["kind"] == "capsule") & (res["status"] == "converged")]
+    conv = res[(res["kind"] == "capsule") & (res["status"] == "converged") & (res["role"] == "sweep")]
     snap = float(conv["q_max_change_last_window"].max()) if "q_max_change_last_window" in conv and len(conv) else 0.0
     cdflat = float(conv["cd_flatness"].max()) if len(conv) else 0.0
     out["max_snapshot_change_q"] = snap; out["max_cd_flatness"] = cdflat
     u_cd = max([out["quantities"].get("cd", {}).get("GCI_medium", 0.0), cdflat] + [c["d_cd_rel"] for c in checks.values()])
     u_q = max([out["quantities"].get("q_max_shield", {}).get("GCI_medium", 0.0), snap] + [c["d_q_rel"] for c in checks.values()])
-    out["u_cd"] = float(u_cd); out["u_q"] = float(u_q)
-    lines += ["", f"Uncertainty used in the trade-space analysis (medium level): u_CD = {100*u_cd:.2f} %, u_q = {100*u_q:.2f} % (largest of the medium-level GCI, the far-boundary sensitivity and the largest residual non-stationarity among converged sweep cases: drag {100*cdflat:.2f} %, peak heating {100*snap:.2f} % between the last two snapshots)."]
+    out["u_cd_abs"] = float(u_cd); out["u_q_abs"] = float(u_q)
+    lines += ["", f"Absolute numerical uncertainty of a medium-level value: u_CD = {100*u_cd:.2f} %, u_q = {100*u_q:.2f} % (largest of the medium-level GCI, the far-boundary sensitivity and the largest residual non-stationarity among converged sweep cases: drag {100*cdflat:.2f} %, peak heating {100*snap:.2f} % between the last two snapshots)."]
+    # ranking uncertainty: the trade space compares designs computed on the same mesh family, so the
+    # relevant error is that of the *difference* to the baseline. It is measured directly from the
+    # finalists re-run at the fine level: |(f_i/f_B)_fine - (f_i/f_B)_medium|.
+    rank = {}
+    fine_b = lv["fine"]
+    res_all = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+    def fam_baseline(family, base_id):
+        """baseline row of the given family (medium: base_id B00, fine: B00_fine); None if absent"""
+        r = res_all[(res_all["family"] == family) & (res_all["base_id"] == base_id) & (res_all["status"] == "converged")]
+        return None if r.empty else r.iloc[0]
+    if base is not None and fine_b is not None:
+        for _, r in res[(res["role"] == "refine") & (res["status"] == "converged")].iterrows():
+            cid, _, level = str(r["case_id"]).rpartition("_")
+            if level != "fine":
+                continue
+            m = pick(cid)
+            if m is None or m["status"] not in ("converged",):
+                continue
+            # ratios are formed within the family each solution was computed on
+            bm = fam_baseline(m["family"], "B00") if m["family"] != fam else base
+            bf = fam_baseline(r["family"], "B00_fine") if r["family"] != fam else fine_b
+            if bm is None or bf is None:
+                log(f"ranking check: no same-family baseline for {cid} (family {r['family']}); skipped")
+                continue
+            rank[cid] = {"family": str(r["family"]), "cd_ratio_medium": float(m["cd"] / bm["cd"]), "cd_ratio_fine": float(r["cd"] / bf["cd"]),
+                         "q_ratio_medium": float(m["q_max_shield"] / bm["q_max_shield"]), "q_ratio_fine": float(r["q_max_shield"] / bf["q_max_shield"])}
+            rank[cid]["d_cd"] = abs(rank[cid]["cd_ratio_fine"] - rank[cid]["cd_ratio_medium"])
+            rank[cid]["d_q"] = abs(rank[cid]["q_ratio_fine"] - rank[cid]["q_ratio_medium"])
+    out["ranking_check"] = rank
+    # shapes supplied by the supplement family enter the trade space with that family's baseline offset
+    fam_off = {"d_cd": 0.0, "d_q": 0.0}
+    sup = SUPPLEMENT.get(fam)
+    if sup and (res["family"] == sup).any() and base is not None:
+        res_all = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+        bs = res_all[(res_all["family"] == sup) & (res_all["base_id"] == "B00") & (res_all["status"] == "converged")]
+        if not bs.empty:
+            fam_off = {"d_cd": float(abs(bs["cd"].iloc[0] / base["cd"] - 1.0)), "d_q": float(abs(bs["q_max_shield"].iloc[0] / base["q_max_shield"] - 1.0)),
+                       "shapes": sorted(set(res[res["family"] == sup]["case_id"]))}
+            lines += ["", f"Family-{sup} supplement: {', '.join(fam_off['shapes'])} enter the trade space from family {sup}; its baseline differs from the family-{fam} baseline by {100*fam_off['d_cd']:.2f} % in C_D and {100*fam_off['d_q']:.2f} % in peak heating, which is added to the ranking margins."]
+    out["supplement_offset"] = fam_off
+    if rank:
+        u_cd_rank = max(max(v["d_cd"] for v in rank.values()), cdflat, fam_off["d_cd"], *[c["d_cd_rel"] for c in checks.values()])
+        u_q_rank = max(max(v["d_q"] for v in rank.values()), snap, fam_off["d_q"], *[c["d_q_rel"] for c in checks.values()])
+        lines += ["", "## Ranking check (finalists at the fine level)", "",
+                  "| Case | C_D / C_D,B00 medium | C_D / C_D,B00 fine | q''_max / q''_max,B00 medium | q''_max / q''_max,B00 fine |", "|---|---:|---:|---:|---:|"]
+        for cid, v in rank.items():
+            lines.append(f"| {cid}{'' if v['family'] == fam else ' (family ' + v['family'] + ', ratios to its own baseline)'} | {v['cd_ratio_medium']:.4f} | {v['cd_ratio_fine']:.4f} | {v['q_ratio_medium']:.4f} | {v['q_ratio_fine']:.4f} |")
+        lines += ["", f"Uncertainty of a design *difference* at the medium level (largest change of a ratio to the baseline between the medium and the fine level, the far-boundary sensitivity and the residual non-stationarity): u_CD = {100*u_cd_rank:.2f} %, u_q = {100*u_q_rank:.2f} %. These are the margins used for the robust nondominated set; the absolute uncertainties above apply to any single value quoted against experiment."]
+    else:
+        u_cd_rank, u_q_rank = u_cd, u_q
+        lines += ["", "No fine-level finalist runs yet: the absolute uncertainties are used as ranking margins."]
+    out["u_cd"] = float(u_cd_rank); out["u_q"] = float(u_q_rank)
     # cylinder table
     if all(not v.empty for v in cyl.values()):
         lines += ["", "## Cylinder benchmark levels", "", "| Level | cells | C_D (1st order) | q''_stag (1st) [W/m^2] | C_D (2nd) | q''_stag (2nd) | q''_stag / Q_0 (2nd) |", "|---|---:|---:|---:|---:|---:|---:|"]
@@ -452,7 +719,8 @@ def cmd_figures(args):
     from . import plots
     from .pareto import analyse, sensitivities
     from .benchmarks import cylinder_comparison, apollo_comparison
-    res = pd.read_csv(os.path.join(RESULTS, "results.csv"))
+    fam = getattr(args, "family", DEFAULT_FAMILY)
+    res = family_results(fam)
     made = []
     cyl = {lv: os.path.join(CASES, "benchmarks", "wieting_cyl", lv) for lv in ("coarse", "medium", "fine")
            if os.path.exists(os.path.join(CASES, "benchmarks", "wieting_cyl", lv, "wall_profile.csv"))}
@@ -460,16 +728,19 @@ def cmd_figures(args):
         made.append(plots.cylinder_validation(cyl))
         for lv, d in cyl.items():
             cylinder_comparison(d)
-    base = {lv: os.path.join(CASES, "baseline", lv) for lv in ("coarse", "medium", "fine")
-            if os.path.exists(os.path.join(CASES, "baseline", lv, "wall_profile.csv"))}
+    base = {}
+    for lv, cid in (("coarse", "B00_coarse"), ("medium", "B00"), ("fine", "B00_fine")):
+        r = res[(res["case_id"] == cid) & (res["role"] == "baseline")]
+        if not r.empty and os.path.exists(os.path.join(r["case_dir"].iloc[0], "wall_profile.csv")):
+            base[lv] = r["case_dir"].iloc[0]
     if base:
         made.append(plots.apollo_validation(base))
         for lv, d in base.items():
             apollo_comparison(d)
-        made.append(plots.mesh_study(res, "B00"))
+        made.append(plots.mesh_study(res[res["role"] == "baseline"], "B00"))
         for lv, d in base.items():
             made.append(plots.convergence_history(d, f"convergence_baseline_{lv}.png"))
-    conv = res[(res["kind"] == "capsule") & (res["status"] == "converged")]
+    conv = res[(res["kind"] == "capsule") & (res["status"] == "converged") & (res["role"].isin(["sweep", "baseline"]))]
     if (conv["case_id"] == "B00").any() and len(conv) > 2:
         unc = {}
         unc_path = os.path.join(RESULTS, "uncertainty.json")
@@ -480,8 +751,10 @@ def cmd_figures(args):
         df.to_csv(os.path.join(RESULTS, "tradespace.csv"), index=False)
         with open(os.path.join(RESULTS, "pareto_analysis.json"), "w") as fh:
             json.dump(analysis, fh, indent=2, default=str)
-        unresolved = res[(res["kind"] == "capsule") & (res["status"] == "unresolved_retry")]
-        made.append(plots.pareto_plot(df, analysis, u_cd=unc.get("u_cd", 0.0), u_q=unc.get("u_q", 0.0), unresolved=unresolved))
+        sweep_groups = res["role"] == "sweep"
+        unresolved = res[(res["kind"] == "capsule") & sweep_groups & (res["status"] == "unresolved_retry")]
+        failed = res[(res["kind"] == "capsule") & sweep_groups & ~res["status"].isin(["converged", "unresolved_retry", "invalid_geometry"]) & res["cd"].notna()]
+        made.append(plots.pareto_plot(df, analysis, u_cd=unc.get("u_cd", 0.0), u_q=unc.get("u_q", 0.0), unresolved=unresolved, failed=failed))
         sens = sensitivities(df)
         sens.to_csv(os.path.join(RESULTS, "sensitivities.csv"), index=False)
         made.append(plots.sensitivity_plot(sens))
@@ -534,20 +807,28 @@ def main(argv=None):
         s.add_argument("--levels", nargs="+", default=["coarse", "medium", "fine"])
         s.add_argument("--nproc", type=int, default=8)
         s.add_argument("--skip-done", action="store_true")
+        s.add_argument("--mesh-variant", default=None, choices=sorted(MESH_VARIANTS))
     s = sub.add_parser("domain-check"); s.set_defaults(fn=cmd_domain_check)
     s.add_argument("--nproc", type=int, default=8); s.add_argument("--skip-done", action="store_true")
+    s.add_argument("--mesh-variant", default=None, choices=sorted(MESH_VARIANTS))
     s = sub.add_parser("sweep"); s.set_defaults(fn=cmd_sweep)
     s.add_argument("--level", default=None); s.add_argument("--nproc", type=int, default=8)
     s.add_argument("--phase", type=int, default=None); s.add_argument("--only", nargs="*", default=None)
-    s.add_argument("--skip-done", action="store_true")
+    s.add_argument("--skip-done", action="store_true"); s.add_argument("--mesh-variant", default=None, choices=sorted(MESH_VARIANTS))
+    s = sub.add_parser("resume"); s.set_defaults(fn=cmd_resume)
+    s.add_argument("--dirs", nargs="+", required=True); s.add_argument("--nproc", type=int, default=8)
     sub.add_parser("post").set_defaults(fn=cmd_post)
     s = sub.add_parser("refine"); s.set_defaults(fn=cmd_refine)
     s.add_argument("--ids", nargs="+", required=True); s.add_argument("--levels", nargs="+", default=["medium", "fine"])
     s.add_argument("--nproc", type=int, default=8); s.add_argument("--skip-done", action="store_true")
-    sub.add_parser("fields").set_defaults(fn=cmd_fields)
-    sub.add_parser("figures").set_defaults(fn=cmd_figures)
-    sub.add_parser("uncertainty").set_defaults(fn=cmd_uncertainty)
-    sub.add_parser("tables").set_defaults(fn=cmd_tables)
+    s.add_argument("--mesh-variant", default=None, choices=sorted(MESH_VARIANTS))
+    s = sub.add_parser("reinit"); s.set_defaults(fn=cmd_reinit)
+    s.add_argument("--ids", nargs="+", required=True); s.add_argument("--source", default=None)
+    s.add_argument("--nproc", type=int, default=8); s.add_argument("--iter", type=int, default=4000)
+    s = sub.add_parser("fields"); s.set_defaults(fn=cmd_fields); s.add_argument("--family", default=DEFAULT_FAMILY, choices=sorted(FAMILIES))
+    s = sub.add_parser("figures"); s.set_defaults(fn=cmd_figures); s.add_argument("--family", default=DEFAULT_FAMILY, choices=sorted(FAMILIES))
+    s = sub.add_parser("uncertainty"); s.set_defaults(fn=cmd_uncertainty); s.add_argument("--family", default=DEFAULT_FAMILY, choices=sorted(FAMILIES))
+    s = sub.add_parser("tables"); s.set_defaults(fn=cmd_tables); s.add_argument("--family", default=DEFAULT_FAMILY, choices=sorted(FAMILIES))
     sub.add_parser("versions").set_defaults(fn=cmd_versions)
     args = ap.parse_args(argv)
     args.fn(args)
