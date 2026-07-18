@@ -1,0 +1,390 @@
+
+-------------------------------------------------------------------------
+|    ___ _   _ ___                                                      |
+|   / __| | | |_  )   Release 8.5.0 "Harrier"                           |
+|   \__ \ |_| |/ /                                                      |
+|   |___/\___//___|   Suite (Computational Fluid Dynamics Code)         |
+|                                                                       |
+-------------------------------------------------------------------------
+| SU2 Project Website: https://su2code.github.io                        |
+|                                                                       |
+| The SU2 Project is maintained by the SU2 Foundation                   |
+| (http://su2foundation.org)                                            |
+-------------------------------------------------------------------------
+| Copyright 2012-2026, SU2 Contributors                                 |
+|                                                                       |
+| SU2 is free software; you can redistribute it and/or                  |
+| modify it under the terms of the GNU Lesser General Public            |
+| License as published by the Free Software Foundation; either          |
+| version 2.1 of the License, or (at your option) any later version.    |
+|                                                                       |
+| SU2 is distributed in the hope that it will be useful,                |
+| but WITHOUT ANY WARRANTY; without even the implied warranty of        |
+| MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      |
+| Lesser General Public License for more details.                       |
+|                                                                       |
+| You should have received a copy of the GNU Lesser General Public      |
+| License along with SU2. If not, see <http://www.gnu.org/licenses/>.   |
+-------------------------------------------------------------------------
+
+Parsing config file for zone 0
+
+----------------- Physical Case Definition ( Zone 0 ) -------------------
+Compressible Laminar Navier-Stokes' equations.
+Mach number: 10.18.
+Angle of attack (AoA): 0 deg, and angle of sideslip (AoS): 0 deg.
+Reynolds number: 0. Reference length 1.
+No restart solution, use the values at infinity (freestream).
+Dimensional simulation.
+The reference area is 0.0242649 m^2.
+The semi-span will be computed using the max y(3D) value.
+The reference length is 0.17577 m.
+Reference origin for moment evaluation is (0, 0, 0).
+Surface(s) where the force coefficients are evaluated: wall.
+
+Surface(s) plotted in the output file: wall.
+Input mesh file name: mesh.su2
+
+--------------- Space Numerical Integration ( Zone 0 ) ------------------
+Roe (with entropy fix = 0.3) solver for the flow inviscid terms.
+Standard Roe without low-dissipation function.
+First order integration in space.
+Average of gradients with correction (viscous flow terms).
+Gradient for upwind reconstruction: unweighted Least-Squares.
+Gradient for viscous and source terms: Green-Gauss.
+
+--------------- Time Numerical Integration  ( Zone 0 ) ------------------
+Local time stepping (steady state simulation).
+Euler implicit method for the flow equations.
+FGMRES is used for solving the linear system.
+Using a ILU(0) preconditioning.
+Convergence criteria of the linear solver: 0.0001.
+Max number of linear iterations: 30.
+CFL adaptation. Factor down: 0.5, factor up: 1.2,
+                lower limit: 0.5, upper limit: 10,
+                acceptable linear residual: 0.001'
+                starting iteration: 0.
+Courant-Friedrichs-Lewy number:      0.5
+
+------------------ Convergence Criteria  ( Zone 0 ) ---------------------
+Maximum number of solver subiterations: 2500.
+Begin convergence monitoring at iteration 500.
+Residual minimum value: 1e-10.
+Cauchy series min. value: 2e-05.
+Number of Cauchy elements: 500.
+Begin windowed time average at iteration 0.
+
+-------------------- Output Information ( Zone 0 ) ----------------------
+File writing frequency: 
++------------------------------------+
+|                     File| Frequency|
++------------------------------------+
+|                  RESTART|       500|
+|                 PARAVIEW|       500|
+|              SURFACE_CSV|       500|
++------------------------------------+
+Writing the convergence history file every 1 inner iterations.
+Writing the screen convergence history every 50 inner iterations.
+The tabular file format is CSV (.csv).
+Convergence history file name: history_stage1.
+Forces breakdown file name: forces_stage1.dat.
+Surface file name: surface_stage1.
+Volume file name: flow_stage1.
+Restart file name: restart_stage1.dat.
+
+------------- Config File Boundary Information ( Zone 0 ) ---------------
++-----------------------------------------------------------------------+
+|                        Marker Type|                        Marker Name|
++-----------------------------------------------------------------------+
+|                          Far-field|                           farfield|
++-----------------------------------------------------------------------+
+|                     Symmetry plane|                               axis|
++-----------------------------------------------------------------------+
+|         Supersonic outlet boundary|                            outflow|
++-----------------------------------------------------------------------+
+|                    Isothermal wall|                               wall|
++-----------------------------------------------------------------------+
+
+-------------------- Output Preprocessing ( Zone 0 ) --------------------
+
+WARNING: SURFACE_PRESSURE_DROP can only be computed for at least 2 surfaces (outlet, inlet, ...)
+
+Screen output fields: INNER_ITER, ITER_TIME, WALL_TIME, RMS_DENSITY, RMS_ENERGY, LIFT, DRAG, TOTAL_HEATFLUX, MAXIMUM_HEATFLUX, AVG_CFL
+History output group(s): ITER, WALL_TIME, RMS_RES, AERO_COEFF, HEAT, LINSOL, CFL_NUMBER
+Convergence field(s): DRAG, MAXIMUM_HEATFLUX
+Warning: No (valid) fields chosen for time convergence monitoring. Time convergence monitoring inactive.
+Volume output fields: COORDINATES, SOLUTION, PRIMITIVE, RESIDUAL
+
+------------------- Geometry Preprocessing ( Zone 0 ) -------------------
+Two dimensional problem.
+220336 grid points before partitioning.
+219375 volume elements before partitioning.
+4 surface markers.
+585 boundary elements in index 0 (Marker = wall).
+375 boundary elements in index 1 (Marker = axis).
+375 boundary elements in index 2 (Marker = outflow).
+585 boundary elements in index 3 (Marker = farfield).
+Executing the partitioning functions.
+Building the graph adjacency structure.
+Calling ParMETIS... graph partitioning complete (1240 edge cuts).
+Distributing ParMETIS coloring.
+Rebalancing vertices.
+Rebalancing volume element connectivity.
+Rebalancing markers and surface elements.
+222820 vertices including ghost points. 
+220614 interior elements including halo cells. 
+220614 quadrilaterals.
+Establishing MPI communication patterns.
+Setting point connectivity.
+Renumbering points (Reverse Cuthill McKee Ordering).
+Recomputing point connectivity.
+Setting element connectivity.
+Checking the numerical grid orientation.
+All volume elements are correctly oriented.
+There has been a re-orientation of 962 LINE surface elements.
+Identifying edges and vertices.
+Setting the control volume structure.
+Area of the computational grid: 0.186334.
+Searching for the closest normal neighbors to the surfaces.
+Storing a mapping from global to local point index.
+Compute the surface curvature.
+Max K: 4089.86. Mean K: 16.4991. Standard deviation K: 180.381.
+Computing mesh quality statistics for the dual control volumes.
++--------------------------------------------------------------+
+|           Mesh Quality Metric|        Minimum|        Maximum|
++--------------------------------------------------------------+
+|    Orthogonality Angle (deg.)|        65.8915|             90|
+|     CV Face Area Aspect Ratio|        1.00001|        800.205|
+|           CV Sub-Volume Ratio|              1|        1.81488|
++--------------------------------------------------------------+
+Finding max control volume width.
+Communicating number of neighbors.
+Wetted area = 0.0660119 m^2.
+Area projection in the x-plane = 0.0878847 m, y-plane = 0 m.
+Max. coordinate in the x-direction = 0.106369 m, y-direction = 0.0878849 m.
+Min. coordinate in the x-direction = 0 m, y-direction = 0 m.
+Computing wall distances.
+
+-------------------- Solver Preprocessing ( Zone 0 ) --------------------
+Viscous flow: Computing pressure using the ideal gas law
+based on the free-stream temperature and a density computed
+from the Reynolds number.
+Force coefficients computed using free-stream values.
+
+-- Models:
++------------------------------------------------------------------------------+
+|          Viscosity Model|        Conductivity Model|              Fluid Model|
++------------------------------------------------------------------------------+
+|               SUTHERLAND|          CONSTANT_PRANDTL|                IDEAL_GAS|
++------------------------------------------------------------------------------+
+-- Fluid properties:
++------------------------------------------------------------------------------+
+|                  Name|    Dim. value|    Ref. value|      Unit|Non-dim. value|
++------------------------------------------------------------------------------+
+|        Ref. Viscosity|     1.716e-05|             1|   N.s/m^2|     1.716e-05|
+|      Sutherland Temp.|        273.15|             1|         K|        273.15|
+|     Sutherland Const.|         110.4|             1|         K|         110.4|
++------------------------------------------------------------------------------+
+|        Prandtl (Lam.)|             -|             -|         -|          0.72|
+|       Prandtl (Turb.)|             -|             -|         -|           0.9|
++------------------------------------------------------------------------------+
+|          Gas Constant|       287.058|             1|  N.m/kg.K|       287.058|
+|      Spec. Heat Ratio|             -|             -|         -|           1.4|
++------------------------------------------------------------------------------+
+-- Initial and free-stream conditions:
++------------------------------------------------------------------------------+
+|                  Name|    Dim. value|    Ref. value|      Unit|Non-dim. value|
++------------------------------------------------------------------------------+
+|       Static Pressure|       190.555|             1|        Pa|       190.555|
+|               Density|     0.0136628|             1|    kg/m^3|     0.0136628|
+|           Temperature|       48.5859|             1|         K|       48.5859|
+|          Total Energy|   1.04662e+06|             1|   m^2/s^2|   1.04662e+06|
+|            Velocity-X|        1422.5|             1|       m/s|        1422.5|
+|            Velocity-Y|             0|             1|       m/s|             0|
+|    Velocity Magnitude|        1422.5|             1|       m/s|        1422.5|
++------------------------------------------------------------------------------+
+|             Viscosity|   3.10559e-06|             1|   N.s/m^2|   3.10559e-06|
+|          Conductivity|             -|             1|   W/m^2.K|             -|
++------------------------------------------------------------------------------+
+|           Mach Number|             -|             -|         -|         10.18|
+|       Reynolds Number|             -|             -|         -|   6.25818e+06|
++------------------------------------------------------------------------------+
+Initialize Jacobian structure (Navier-Stokes). MG level: 0.
+
+------------------- Numerics Preprocessing ( Zone 0 ) -------------------
+
+----------------- Integration Preprocessing ( Zone 0 ) ------------------
+
+------------------- Iteration Preprocessing ( Zone 0 ) ------------------
+Euler/Navier-Stokes/RANS fluid iteration.
+
+------------------------------ Begin Solver -----------------------------
+
+Simulation Run using the Single-zone Driver
+WARNING: SU2 was not compiled for an AVX-capable architecture. Performance could be better,
+         see https://su2code.github.io/docs_v7/Build-SU2-Linux-MacOS/#compiler-optimizations
++---------------------------------------------------------------------------------------------------------------------------------+
+|  Inner_Iter|   Time(sec)|   Time(sec)|    rms[Rho]|   rms[RhoE]|          CL|          CD|          HF|       maxHF|     Avg CFL|
++---------------------------------------------------------------------------------------------------------------------------------+
+|           0|    0.351390|  3.5139e-01|   -3.543489|    2.487949|   -0.189106|   12.839238| -2.6438e+06|  3.0672e+07|  6.0000e-01|
+|          50|    0.499969|  5.2183e-01|   -3.971903|    1.870809|   -0.407069|    1.911134|  1.0458e+06|  1.8931e+07|  1.0000e+01|
+|         100|    0.534108|  5.5943e-01|   -3.997591|    2.004126|   -0.562649|    1.982218|  5.0963e+05|  9.6049e+06|  5.0000e-01|
+|         150|    0.551845|  5.5087e-01|   -3.888685|    2.177853|   -0.585609|    1.978819|  3.6393e+05|  7.0281e+06|  1.0000e+01|
+|         200|    0.360875|  5.0358e-01|   -3.893818|    2.114178|   -0.587626|    1.975536|  3.4040e+05|  6.6030e+06|  5.0000e-01|
+|         250|    0.567775|  4.7778e-01|   -3.836970|    2.221341|   -0.589058|    1.974309|  3.2277e+05|  6.2883e+06|  9.9817e+00|
+|         300|    0.325931|  4.7180e-01|   -3.843287|    2.161684|   -0.588349|    1.956379|  2.7232e+05|  5.3676e+06|  5.0000e-01|
+|         350|    0.330488|  4.5067e-01|   -3.837840|    2.174517|   -0.587454|    1.952308|  2.6797e+05|  5.2856e+06|  5.0000e-01|
+|         400|    0.319370|  4.5439e-01|   -3.865305|    2.158546|   -0.590318|    1.957796|  2.3161e+05|  4.6396e+06|  5.0000e-01|
+|         450|    0.338246|  4.3905e-01|   -3.823844|    2.172178|   -0.588618|    1.950818|  2.2755e+05|  4.5589e+06|  5.0000e-01|
+|         500|    0.612470|  4.4171e-01|   -3.718931|    2.371948|   -0.587216|    1.946204|  2.0342e+05|  4.1218e+06|  1.0000e+01|
++-----------------------------------------------------------------------+
+|        File Writing Summary       |              Filename             |
++-----------------------------------------------------------------------+
+|SU2 binary restart                 |restart_stage1.dat                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|Paraview                           |flow_stage1.vtu                    |
+|Paraview + iter                    |flow_stage1_000500.vtu             |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|CSV file                           |surface_stage1.csv                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
++-----------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------------+
+|  Inner_Iter|   Time(sec)|   Time(sec)|    rms[Rho]|   rms[RhoE]|          CL|          CD|          HF|       maxHF|     Avg CFL|
++---------------------------------------------------------------------------------------------------------------------------------+
+|         550|    0.324813|  4.3865e-01|   -3.857162|    2.151007|   -0.579793|    1.918031|  1.8995e+05|  3.8535e+06|  5.0000e-01|
+|         600|    0.571324|  4.4117e-01|   -3.763271|    2.303818|   -0.572345|    1.896655|  1.7324e+05|  3.5444e+06|  1.0000e+01|
+|         650|    0.483084|  4.4062e-01|   -3.894538|    2.090195|   -0.559812|    1.851479|  1.5570e+05|  3.1953e+06|  5.0000e-01|
+|         700|    0.792315|  4.4442e-01|   -3.802426|    2.242911|   -0.544606|    1.804552|  1.4173e+05|  2.9211e+06|  1.0000e+01|
+|         750|    0.262389|  4.5665e-01|   -3.961867|    2.008432|   -0.510845|    1.697504|  1.1529e+05|  2.3919e+06|  5.0000e-01|
+|         800|    0.814629|  4.5698e-01|   -4.005097|    1.964383|   -0.508230|    1.690311|  1.1379e+05|  2.3631e+06|  2.5799e+00|
+|         850|    0.934088|  4.8161e-01|   -3.982768|    2.001182|   -0.480231|    1.611908|  9.4241e+04|  1.9885e+06|  1.0000e+01|
+|         900|    0.765667|  4.8803e-01|   -4.047740|    1.919959|   -0.464673|    1.568061|  8.5130e+04|  1.8152e+06|  1.0000e+01|
+|         950|    0.642827|  5.0118e-01|   -4.232223|    1.747743|   -0.446110|    1.515989|  7.3170e+04|  1.5860e+06|  1.0000e+01|
+|        1000|    0.655318|  5.1138e-01|   -4.368992|    1.613528|   -0.436038|    1.492370|  6.5798e+04|  1.4478e+06|  1.0000e+01|
++-----------------------------------------------------------------------+
+|        File Writing Summary       |              Filename             |
++-----------------------------------------------------------------------+
+|SU2 binary restart                 |restart_stage1.dat                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|Paraview                           |flow_stage1.vtu                    |
+|Paraview + iter                    |flow_stage1_001000.vtu             |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|CSV file                           |surface_stage1.csv                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
++-----------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------------+
+|  Inner_Iter|   Time(sec)|   Time(sec)|    rms[Rho]|   rms[RhoE]|          CL|          CD|          HF|       maxHF|     Avg CFL|
++---------------------------------------------------------------------------------------------------------------------------------+
+|        1050|    0.609158|  5.2355e-01|   -4.493351|    1.483233|   -0.430654|    1.479348|  6.0042e+04|  1.3310e+06|  1.0000e+01|
+|        1100|    0.690647|  5.3195e-01|   -4.643123|    1.326010|   -0.428292|    1.473310|  5.5639e+04|  1.2375e+06|  1.0000e+01|
+|        1150|    0.657378|  5.4121e-01|   -4.821901|    1.142092|   -0.427245|    1.470264|  5.1987e+04|  1.1571e+06|  1.0000e+01|
+|        1200|    0.684457|  5.4872e-01|   -4.966344|    0.983528|   -0.426570|    1.467793|  4.8593e+04|  1.0799e+06|  1.0000e+01|
+|        1250|    0.810221|  5.5641e-01|   -5.096863|    0.847525|   -0.426020|    1.466249|  4.5768e+04|  1.0161e+06|  1.0000e+01|
+|        1300|    0.706391|  5.6257e-01|   -5.206114|    0.728262|   -0.425581|    1.465968|  4.3378e+04|  9.6353e+05|  1.0000e+01|
+|        1350|    0.689046|  5.6766e-01|   -5.286446|    0.629904|   -0.425138|    1.464928|  4.1024e+04|  9.1048e+05|  1.0000e+01|
+|        1400|    0.777449|  5.7316e-01|   -5.391954|    0.511067|   -0.424022|    1.461352|  3.8629e+04|  8.5690e+05|  1.0000e+01|
+|        1450|    0.620461|  5.7896e-01|   -5.524523|    0.382398|   -0.423427|    1.459731|  3.6574e+04|  8.1116e+05|  1.0000e+01|
+|        1500|    0.735286|  5.8306e-01|   -5.629225|    0.271602|   -0.423080|    1.458872|  3.4779e+04|  7.7104e+05|  1.0000e+01|
++-----------------------------------------------------------------------+
+|        File Writing Summary       |              Filename             |
++-----------------------------------------------------------------------+
+|SU2 binary restart                 |restart_stage1.dat                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|Paraview                           |flow_stage1.vtu                    |
+|Paraview + iter                    |flow_stage1_001500.vtu             |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|CSV file                           |surface_stage1.csv                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
++-----------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------------+
+|  Inner_Iter|   Time(sec)|   Time(sec)|    rms[Rho]|   rms[RhoE]|          CL|          CD|          HF|       maxHF|     Avg CFL|
++---------------------------------------------------------------------------------------------------------------------------------+
+|        1550|    0.655537|  5.8948e-01|   -5.726133|    0.157762|   -0.422910|    1.458541|  3.3117e+04|  7.3396e+05|  1.0000e+01|
+|        1600|    1.360978|  5.9412e-01|   -5.817983|    0.057981|   -0.422621|    1.457599|  3.1581e+04|  6.9962e+05|  1.0000e+01|
+|        1650|    0.668079|  5.9804e-01|   -5.915648|   -0.053054|   -0.422428|    1.457199|  3.0242e+04|  6.7006e+05|  1.0000e+01|
+|        1700|    0.649122|  6.0092e-01|   -5.970262|   -0.114513|   -0.422258|    1.456913|  2.9029e+04|  6.4317e+05|  1.0000e+01|
+|        1750|    0.903773|  6.0482e-01|   -6.032466|   -0.191382|   -0.422213|    1.456724|  2.7924e+04|  6.1863e+05|  1.0000e+01|
+|        1800|    0.650397|  6.0795e-01|   -6.104504|   -0.284710|   -0.422153|    1.456551|  2.6935e+04|  5.9681e+05|  1.0000e+01|
+|        1850|    0.767386|  6.1082e-01|   -6.158044|   -0.365392|   -0.422124|    1.456539|  2.6045e+04|  5.7720e+05|  1.0000e+01|
+|        1900|    0.739807|  6.1352e-01|   -6.206618|   -0.417367|   -0.422032|    1.456365|  2.5235e+04|  5.5942e+05|  1.0000e+01|
+|        1950|    0.671623|  6.1704e-01|   -6.241970|   -0.460943|   -0.421959|    1.456268|  2.4509e+04|  5.4349e+05|  1.0000e+01|
+|        2000|    0.766199|  6.1988e-01|   -6.276301|   -0.507079|   -0.421883|    1.456139|  2.3850e+04|  5.2902e+05|  1.0000e+01|
++-----------------------------------------------------------------------+
+|        File Writing Summary       |              Filename             |
++-----------------------------------------------------------------------+
+|SU2 binary restart                 |restart_stage1.dat                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|Paraview                           |flow_stage1.vtu                    |
+|Paraview + iter                    |flow_stage1_002000.vtu             |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|CSV file                           |surface_stage1.csv                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
++-----------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------------------------------------+
+|  Inner_Iter|   Time(sec)|   Time(sec)|    rms[Rho]|   rms[RhoE]|          CL|          CD|          HF|       maxHF|     Avg CFL|
++---------------------------------------------------------------------------------------------------------------------------------+
+|        2050|    0.704385|  6.2271e-01|   -6.313218|   -0.554031|   -0.421805|    1.455986|  2.3249e+04|  5.1585e+05|  1.0000e+01|
+|        2100|    0.757026|  6.2468e-01|   -6.359372|   -0.615919|   -0.421732|    1.455849|  2.2706e+04|  5.0393e+05|  1.0000e+01|
+|        2150|    0.736169|  6.2737e-01|   -6.397374|   -0.664242|   -0.421666|    1.455747|  2.2214e+04|  4.9315e+05|  1.0000e+01|
+|        2200|    0.609481|  6.2989e-01|   -6.430992|   -0.706805|   -0.421606|    1.455663|  2.1768e+04|  4.8332e+05|  1.0000e+01|
+|        2250|    0.681651|  6.3182e-01|   -6.464524|   -0.752147|   -0.421556|    1.455599|  2.1361e+04|  4.7438e+05|  1.0000e+01|
+|        2300|    0.764838|  6.3346e-01|   -6.495582|   -0.793896|   -0.421508|    1.455541|  2.0991e+04|  4.6622e+05|  1.0000e+01|
+|        2350|    0.674403|  6.3534e-01|   -6.524735|   -0.830655|   -0.421462|    1.455487|  2.0653e+04|  4.5874e+05|  1.0000e+01|
+|        2400|    0.687249|  6.3715e-01|   -6.553045|   -0.866733|   -0.421417|    1.455435|  2.0343e+04|  4.5191e+05|  1.0000e+01|
+|        2450|    0.852164|  6.3628e-01|   -6.579301|   -0.900032|   -0.421374|    1.455387|  2.0060e+04|  4.4564e+05|  1.0000e+01|
+|        2499|    0.792000|  6.3919e-01|   -6.605854|   -0.934963|   -0.421334|    1.455344|  1.9806e+04|  4.4000e+05|  1.0000e+01|
+
+----------------------------- Solver Exit -------------------------------
+
+Maximum number of iterations reached (ITER = 2500) before convergence.
++-----------------------------------------------------------------------+
+|      Convergence Field     |     Value    |   Criterion  |  Converged |
++-----------------------------------------------------------------------+
+|                  Cauchy[CD]|   1.09619e-06|       < 2e-05|         Yes|
+|               Cauchy[maxHF]|   0.000369627|       < 2e-05|          No|
++-----------------------------------------------------------------------+
+-------------------------------------------------------------------------
++-----------------------------------------------------------------------+
+|        File Writing Summary       |              Filename             |
++-----------------------------------------------------------------------+
+|SU2 binary restart                 |restart_stage1.dat                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|Paraview                           |flow_stage1.vtu                    |
+|Paraview + iter                    |flow_stage1_002499.vtu             |
+
+Writing the forces breakdown file (forces_stage1.dat).
+|CSV file                           |surface_stage1.csv                 |
+
+Writing the forces breakdown file (forces_stage1.dat).
++-----------------------------------------------------------------------+
+
+--------------------------- Finalizing Solver ---------------------------
+Deleted CNumerics container.
+Deleted CIntegration container.
+Deleted CSolver container.
+Deleted CIteration container.
+Deleted CInterface container.
+Deleted CGeometry container.
+Deleted CFreeFormDefBox class.
+Deleted CSurfaceMovement class.
+Deleted CVolumetricMovement class.
+Deleted CConfig container.
+Deleted nInst container.
+Deleted COutput class.
+-------------------------------------------------------------------------
+
+------------------------- Exit Success (SU2_CFD) ------------------------
+

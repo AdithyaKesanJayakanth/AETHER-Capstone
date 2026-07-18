@@ -1,0 +1,53 @@
+{
+  "quality": {
+    "n_cells": 91250,
+    "n_points": 91866,
+    "min_area": 2.461835349291952e-10,
+    "n_negative_area": 0,
+    "min_angle_deg": 47.55641136568163,
+    "max_angle_deg": 132.68990575357822,
+    "max_aspect_ratio": 533.0288399306412,
+    "first_cell_height_min": 1.9999999999931313e-06,
+    "first_cell_height_max": 2.0000000000068893e-06,
+    "ni": 366,
+    "nj": 251
+  },
+  "markers": {
+    "wall": "j0",
+    "axis": "i0",
+    "outflow": "iN",
+    "farfield": "jN"
+  },
+  "info": {
+    "kind": "capsule",
+    "level": "medium",
+    "refine_mode": "all",
+    "ni": 366,
+    "nj": 251,
+    "truncate_at_base": true,
+    "axis_offset": 0.0,
+    "first_cell_m": 2e-06,
+    "growth": 1.0999999999999999,
+    "h_normal_shock_m": 0.0005333333333333334,
+    "h_wall_cap_m": 0.0010666666666666667,
+    "d_far_nose_D": 2.0,
+    "d_far_wake_D": 4.5,
+    "params": {
+      "D": 0.17577,
+      "Rn_D": 1.20231,
+      "Rs_D": 0.05058,
+      "theta_c_deg": 33.0,
+      "rb_D": 0.2,
+      "rf_D": 0.03
+    },
+    "shield_arc_length_m": 0.10023612916799139,
+    "landmarks_s": {
+      "P1": 0.08471436889254946,
+      "Pmax": 0.09511559951828112,
+      "P2": 0.10023612916799139,
+      "P3": 0.19155785241882042,
+      "Pf": 0.19680373095567447,
+      "P4": 0.22909467125591101
+    }
+  }
+}
