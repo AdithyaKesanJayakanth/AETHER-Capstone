@@ -1,0 +1,55 @@
+{
+  "baseline": {
+    "case_id": "B00",
+    "cd": 1.462694944,
+    "q_max_shield": 110555.4765625
+  },
+  "uncertainty": {
+    "u_cd": 0.0024278104899051467,
+    "u_q": 0.014400590912862388
+  },
+  "n_cases": 20,
+  "nondominated": [
+    "C41",
+    "K03",
+    "N10",
+    "S03"
+  ],
+  "nondominated_robust": [
+    "B00",
+    "C29",
+    "C37",
+    "C41",
+    "K03",
+    "N10",
+    "S03"
+  ],
+  "highest_drag": "S03",
+  "lowest_heating": "K03",
+  "selections": {
+    "lowest_q_at_98pct_drag": {
+      "case_id": "N10",
+      "cd": 1.436624425,
+      "q_max_shield": 104707.015625,
+      "cd_rel_baseline": -0.017823620097233372,
+      "q_rel_baseline": -0.05290068949405424,
+      "rule": "lowest peak heat flux among designs with C_D >= 0.98 C_D,baseline"
+    },
+    "lowest_q_at_95pct_drag": {
+      "case_id": "N10",
+      "cd": 1.436624425,
+      "q_max_shield": 104707.015625,
+      "cd_rel_baseline": -0.017823620097233372,
+      "q_rel_baseline": -0.05290068949405424,
+      "rule": "lowest peak heat flux among designs with C_D >= 0.95 C_D,baseline"
+    },
+    "lowest_q_at_baseline_drag": {
+      "case_id": "C41",
+      "cd": 1.464428837,
+      "q_max_shield": 110166.1015625,
+      "cd_rel_baseline": 0.0011854098539907376,
+      "q_rel_baseline": -0.003521987441118535,
+      "rule": "lowest peak heat flux among designs with C_D >= C_D,baseline"
+    }
+  }
+}
