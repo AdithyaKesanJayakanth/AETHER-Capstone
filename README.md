@@ -15,7 +15,7 @@ A reproducible computational study of how nose radius, shoulder radius and rear-
 | `aether/` | Python package: geometry, mesh generation, SU2 configuration, run control, post-processing, mesh-convergence analysis, trade-space analysis, plots |
 | `configs/` | operating conditions, SU2 configuration template, sweep table |
 | `data/reference/` | NASA reference reports and the digitised/transcribed comparison data |
-| `cases/` | one directory per simulation (mesh, configs, logs, histories, solution, summary) |
+| `cases/` | one directory per simulation (mesh, configs, logs, histories, solution, summary); `cases/variant/` holds families B and C |
 | `results/` | `results.csv` (every case, including failed ones), trade-space tables, figures |
 | `docs/` | geometry, conditions, mesh, validation, logbook, review record, report, slides |
 | `scripts/` | installation and figure scripts |
@@ -37,6 +37,21 @@ make sweep        # design-space sweep (configs/sweep.yaml)
 make post figures # results/results.csv and all figures
 make report       # docs/report/report.pdf
 ```
+
+The production results are computed on mesh family B (`--mesh-variant t15`: cells elongated along the bow shock), with family C (`--mesh-variant t20`) for the two shapes that stay on the carbuncle branch on B, and the first family A kept as a cross-check (`docs/mesh.md`, `docs/validation.md` A.6). The exact command sequence that produced `results/` is:
+
+```bash
+python -m aether baseline     --mesh-variant t15            # B00 coarse/medium/fine
+python -m aether domain-check --mesh-variant t15
+python -m aether sweep        --mesh-variant t15            # 18 valid shapes + X02 + rejections
+AETHER_MAX_RETRIES=0 python -m aether sweep --mesh-variant t20 --only B00 S03 K05
+AETHER_MAX_RETRIES=0 python -m aether refine --mesh-variant t15 --ids N10 C41 K03 --levels fine
+AETHER_MAX_RETRIES=0 python -m aether refine --mesh-variant t20 --ids S03 --levels fine
+AETHER_MAX_RETRIES=0 python -m aether baseline --mesh-variant t20 --levels fine
+python -m aether post && python -m aether uncertainty && python -m aether figures && python -m aether tables && python -m aether fields
+```
+
+`python -m aether post` tags every case with its family (A/B/C), base id and role; the analysis commands take `--family` (default B) and supplement family B with family C where B has no converged result.
 
 Every case directory is self-contained: `mesh.su2`, `stage1.cfg`, `stage2.cfg`, `history_stage*.csv`, `flow_stage2.vtu`, `wall_profile.csv`, `summary.json`, `run_stage*.json` (binary, ranks, wall time, exit code). `results/results.csv` links every number in the report to its case directory.
 
