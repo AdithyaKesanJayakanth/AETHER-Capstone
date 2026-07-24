@@ -21,3 +21,7 @@ tools/src751/
 tools/src-axifix/
 uv.lock
 tools/su2-native-pr2715-only/
+tools/su2-native-prev/
+tools/su2-axifix
+cases/**/mesh.png
+cases/**/mesh_zoom.png
