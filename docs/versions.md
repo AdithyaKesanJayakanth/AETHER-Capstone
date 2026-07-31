@@ -1,6 +1,6 @@
 # Software versions used
 
-- SU2: SU2 v8.5.0 "Harrier" (native-mpi), binary `tools/su2-native/bin/SU2_CFD`
+- SU2: SU2 v8.5.0 "Harrier" + PR2715 near-axis patch (native-mpi), binary `tools/su2-native/bin/SU2_CFD`
 - Python: 3.13.5 (`/Users/jay/dev/adithya_github/AETHER-Capstone/.venv/bin/python`)
 - numpy: 2.5.4
 - scipy: 1.18.1
