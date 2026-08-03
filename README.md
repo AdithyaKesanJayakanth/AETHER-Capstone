@@ -64,5 +64,5 @@ Exact software versions: [docs/versions.md](docs/versions.md). The SU2 binary is
 - [docs/mesh.md](docs/mesh.md) — mesh topology, refinement levels, quality, far-boundary check
 - [docs/validation.md](docs/validation.md) — reference comparisons, numerical-scheme investigation, mesh convergence
 - [docs/logbook.md](docs/logbook.md) — dated record of decisions, failures and fixes
-- [docs/report/report.md](docs/report/report.md) — technical report
+- [docs/report/report.md](docs/report/report.md) — technical report; [docs/report/slides.md](docs/report/slides.md) — presentation; [docs/poster/AETHER_Poster.tex](docs/poster/AETHER_Poster.tex) — research poster (built to `AETHER_Poster.pdf`)
 - [docs/ai_usage_policy.md](docs/ai_usage_policy.md) — AI usage and research-ownership statement

@@ -75,3 +75,5 @@ Dated record of decisions, failures and fixes. Numbers quoted here are the ones 
 **22–24 July.** Consistency pass: every number quoted in docs/validation.md and docs/report/report.md re-read against results/tables.md and the case summaries; figure captions checked; unit tests extended for the restart-file format and the GCI order handling (16 tests). Slides drafted from the report.
 
 **27–31 July.** Report typeset (pandoc + tectonic) and read through twice; limitations section rewritten to say what is and is not claimed (absolute heating ±25 %, differences to the ranking margins). Review record opened for the technical reviews (docs/review_record.md); reviewer names and dates to be entered when confirmed.
+
+**3 August.** Research poster (A0, `AETHER_Poster.pdf`) laid out as the project happened: the question, the design of the study, what broke while building it, the evidence, the trade space, what the flow is doing, what I learned, and the limits. Built from the same figures and numbers as the report by `scripts/build_report.sh`.

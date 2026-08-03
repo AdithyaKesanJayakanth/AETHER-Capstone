@@ -10,4 +10,5 @@ pandoc -f markdown-smart report.md -o report.pdf --pdf-engine=tectonic --resourc
 pandoc -f markdown-smart slides.md -t beamer -o slides.pdf --pdf-engine=tectonic --resource-path=.:../..:../../results/figures \
   -V mainfont="Times New Roman" -V theme=metropolis 2>/dev/null || \
 pandoc -f markdown-smart slides.md -t beamer -o slides.pdf --pdf-engine=tectonic --resource-path=.:../..:../../results/figures -V mainfont="Times New Roman"
-echo "wrote docs/report/report.pdf and docs/report/slides.pdf"
+cd ../poster && tectonic AETHER_Poster.tex && mv AETHER_Poster.pdf ../../AETHER_Poster.pdf
+echo "wrote docs/report/report.pdf, docs/report/slides.pdf and AETHER_Poster.pdf"
