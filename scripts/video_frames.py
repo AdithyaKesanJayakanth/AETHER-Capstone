@@ -109,7 +109,7 @@ except Exception:
     pass
 v3.CameraViewUp = [0.0, 1.0, 0.0]; v3.CameraViewAngle = 28
 focal = [0.42 * D, 0.2 * D, 0.0]
-N3 = 240
+N3 = 0 if "--extra" in sys.argv else 240
 for i in range(N3):
     t = i / (N3 - 1)
     az = math.radians(172 - 62 * t)         # from nearly head-on upstream to the open quadrant (+z side)
@@ -122,6 +122,8 @@ for i in range(N3):
 print("3d frames done")
 if "--3d-only" in sys.argv:
     sys.exit(0)
+if "--extra" in sys.argv:
+    STILLS = []
 
 # ----------------------------------------------------------------- 2-D stills of sweep shapes
 STILLS = [("N06_t15", "Mach"), ("N08_t15", "Mach"), ("N10_t15", "Mach"), ("B00_t15", "Mach"), ("N14_t15", "Mach"), ("N16_t15", "Mach"),
@@ -145,3 +147,43 @@ for cid, field in STILLS:
     SaveScreenshot(os.path.join(OUT, "stills", f"{cid}_{field}.png"), v2, ImageResolution=[W, H])
     Hide(bx, v2); Delete(bx); Delete(rd)
 print("stills done")
+
+# ----------------------------------------------------------------- extra: body-only rotation and the carbuncle comparison
+if "--extra" in sys.argv:
+    os.makedirs(os.path.join(OUT, "body"), exist_ok=True)
+    vb = dark_view([W, H])
+    full = RotationalExtrusion(Input=wall); full.Resolution = 180; full.Angle = 360
+    try:
+        full.RotationAxis = [1.0, 0.0, 0.0]
+    except Exception:
+        pass
+    db = Show(full, vb); ColorBy(db, None); db.DiffuseColor = [0.72, 0.74, 0.78]; db.AmbientColor = [0.72, 0.74, 0.78]
+    try:
+        db.Specular = 0.5; db.SpecularPower = 40; db.Ambient = 0.15; db.Diffuse = 0.9
+    except Exception:
+        pass
+    vb.CameraViewUp = [0, 1, 0]; vb.CameraViewAngle = 26
+    NB = 180
+    for i in range(NB):
+        t = i / (NB - 1)
+        az = math.radians(200 - 140 * t); el = math.radians(12 + 8 * math.sin(math.pi * t)); rad = 2.6 * D
+        vb.CameraFocalPoint = [0.3 * D, 0.0, 0.0]
+        vb.CameraPosition = [0.3 * D + rad * math.cos(el) * math.cos(az), rad * math.sin(el), rad * math.cos(el) * math.sin(az)]
+        Render(vb)
+        SaveScreenshot(os.path.join(OUT, "body", f"body_{i:04d}.png"), vb, ImageResolution=[W, H])
+    print("body frames done")
+    # carbuncle branch (family A, S08 after the sequencing restart) against the physical branch (family B)
+    vc = dark_view([W, H]); vc.InteractionMode = "2D"
+    for tag, cdir in (("carbuncle", os.path.join(ROOT, "cases", "sweep", "S08")), ("physical", os.path.join(ROOT, "cases", "variant", "S08_t15"))):
+        rd, D2, L2 = load_case(cdir)
+        bx = clip_box(rd, -0.35 * D2, 0.45 * D2, 0.55 * D2, D2)
+        disp = Show(bx, vc); ColorBy(disp, ("POINTS", "Pressure"))
+        lut = GetColorTransferFunction("Pressure"); preset(lut, "Inferno"); lut.RescaleTransferFunction(0.0, 29000.0)
+        disp.SetScalarBarVisibility(vc, True); bar(lut, vc, "Pressure [Pa]", "Lower Right Corner")
+        vc.CameraParallelProjection = 1
+        vc.CameraFocalPoint = [0.05 * D2, 0.275 * D2, 0.0]; vc.CameraPosition = [0.05 * D2, 0.275 * D2, 1.0]; vc.CameraViewUp = [0, 1, 0]
+        vc.CameraParallelScale = 0.275 * D2
+        Render(vc)
+        SaveScreenshot(os.path.join(OUT, "stills", f"S08_{tag}_Pressure.png"), vc, ImageResolution=[W, H])
+        Hide(bx, vc); Delete(bx); Delete(rd)
+    print("carbuncle stills done")
