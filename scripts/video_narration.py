@@ -1,18 +1,26 @@
-"""Narration of the AETHER video, first person, synthesised with macOS speech.
+"""Narration of the AETHER video, first person.
 
-usage: python scripts/video_narration.py <work_dir> [voice]   -> <work_dir>/audio/s*.wav + segments.json
-Default voice: "Reed (English (US))" (a young male voice); "Aman (English (India))" is the alternative.
+usage: python scripts/video_narration.py <work_dir>   -> <work_dir>/audio/s*.wav + segments.json
+
+Backend: ElevenLabs when ELEVENLABS_API_KEY is set in the environment (the key is never stored
+in the repository), otherwise macOS speech. Voice and pace:
+  ELEVENLABS_VOICE_ID   (default bIHbv24MWmeRgasZH58o, "Will": young American male, calm, conversational)
+  ELEVENLABS_SPEED      (default 1.12; model range 0.7-1.2)
+  AETHER_NARRATION_TARGET_S  optional total length; a mild tempo correction (<= 1.15x) is applied if exceeded
 """
 import json
 import os
 import subprocess
 import sys
+import urllib.request
 
 WORK = os.path.join(sys.argv[1], "audio")
-VOICE = sys.argv[2] if len(sys.argv) > 2 else "Reed (English (US))"
-RATE = "210"
 os.makedirs(WORK, exist_ok=True)
 os.chdir(WORK)
+API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "bIHbv24MWmeRgasZH58o")
+SPEED = float(os.environ.get("ELEVENLABS_SPEED", "1.12"))
+MODEL = os.environ.get("ELEVENLABS_MODEL", "eleven_multilingual_v2")
 
 SEG = [
     ("s1", "Two years ago my project was a model Formula One car. Shape it, simulate it, race it, and find out whether the numbers were right. It left me with one habit: change one thing at a time, and measure."),
@@ -23,23 +31,41 @@ SEG = [
     ("s6", "The answer. Drag follows the nose and shoulder radius; the cone angle does nothing. The heating peak lives at the shoulder. And a nose radius of one diameter gives five percent less peak heating for under two percent of drag, four times the margin I measured by refining the mesh."),
     ("s7", "What I take with me. Write the rule before the result. A converged solution is not a correct one until the physics agrees. Keep the failures; they are the evidence. The capsule at ISRO looked wrong until I understood it. Now I know what it costs to make it look right. I'm Adithya, and this is Project AETHER."),
 ]
+
+
+def elevenlabs(name, text):
+    body = json.dumps({"text": text, "model_id": MODEL,
+                       "voice_settings": {"stability": 0.55, "similarity_boost": 0.8, "style": 0.15, "use_speaker_boost": True, "speed": SPEED}}).encode()
+    req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}?output_format=mp3_44100_128", data=body,
+                                 headers={"xi-api-key": API_KEY, "Content-Type": "application/json", "Accept": "audio/mpeg"})
+    with urllib.request.urlopen(req, timeout=120) as r, open(f"{name}.mp3", "wb") as fh:
+        fh.write(r.read())
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f"{name}.mp3", "-ar", "48000", "-ac", "2", f"{name}.wav"], check=True)
+
+
+def mac_say(name, text):
+    subprocess.run(["say", "-v", "Reed (English (US))", "-r", "210", "-o", f"{name}.aiff", text], check=True)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f"{name}.aiff", "-ar", "48000", "-ac", "2", f"{name}.wav"], check=True)
+
+
+def duration(path):
+    return float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+                                capture_output=True, text=True).stdout.strip())
+
+
 out = {}
 for name, text in SEG:
-    subprocess.run(["say", "-v", VOICE, "-r", RATE, "-o", f"{name}.aiff", text], check=True)
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f"{name}.aiff", "-ar", "48000", "-ac", "2", f"{name}.wav"], check=True)
-    d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f"{name}.wav"],
-                             capture_output=True, text=True).stdout.strip())
-    out[name] = {"text": text, "duration": d}
-    print(name, round(d, 2), "s")
-TARGET = float(os.environ.get("AETHER_NARRATION_TARGET_S", "0"))   # 0 = keep the synthesised pace
+    (elevenlabs if API_KEY else mac_say)(name, text)
+    out[name] = {"text": text, "duration": duration(f"{name}.wav")}
+    print(name, round(out[name]["duration"], 2), "s")
+TARGET = float(os.environ.get("AETHER_NARRATION_TARGET_S", "0"))
 total = sum(v["duration"] for v in out.values())
 if TARGET and total > TARGET:
-    f = min(total / TARGET, 1.25)
+    f = min(total / TARGET, 1.15)
     for name in out:
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f"{name}.wav", "-filter:a", f"atempo={f:.4f}", f"{name}_t.wav"], check=True)
         os.replace(f"{name}_t.wav", f"{name}.wav")
-        out[name]["duration"] = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f"{name}.wav"],
-                                                     capture_output=True, text=True).stdout.strip())
+        out[name]["duration"] = duration(f"{name}.wav")
     print(f"tempo x{f:.3f} applied")
 json.dump(out, open("segments.json", "w"), indent=1)
-print("total", round(sum(v["duration"] for v in out.values()), 1), "s")
+print("backend", "elevenlabs" if API_KEY else "macos-say", "| total", round(sum(v["duration"] for v in out.values()), 1), "s")

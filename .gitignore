@@ -25,3 +25,6 @@ tools/su2-native-prev/
 tools/su2-axifix
 cases/**/mesh.png
 cases/**/mesh_zoom.png
+.env
+.env.*
+*.env
