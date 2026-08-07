@@ -29,7 +29,7 @@ Maintained by the author in `docs/ai_use_log.md` with one row per task, as the p
 | Component | Origin |
 |---|---|
 | `aether/` package (geometry, meshing, configuration, run control, post-processing, analysis, plots) | Project code, in this repository |
-| SU2 v8.5.0 | External open-source CFD solver (compressible laminar Navier–Stokes, axisymmetric formulation, isothermal wall, force and heat-flux integration). Built from the tagged release; no modifications. |
+| SU2 v8.5.0 | External open-source CFD solver (compressible laminar Navier–Stokes, axisymmetric formulation, isothermal wall, force and heat-flux integration). Built from the tagged release with the near-axis source-term changes of SU2 pull request #2715 applied and two inactive environment-variable test hooks (`tools/aether_su2_patches.diff`, docs/validation.md A.3). |
 | Gmsh 4.15.2 | External mesh generator, evaluated for the unstructured alternative described in `docs/mesh.md` |
 | ParaView 6.2.0 | External visualisation software (field plots and line probes via `pvpython`) |
 | NumPy, SciPy, pandas, matplotlib, PyYAML, meshio | External Python libraries |

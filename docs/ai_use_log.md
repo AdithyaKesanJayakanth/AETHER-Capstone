@@ -1,7 +1,15 @@
 # AI-use log — Project AETHER
 
-Kept by the author as required by `docs/ai_usage_policy.md`. One row per task. "Checked by" names the verification actually performed (test, reference comparison, hand calculation, documentation lookup), not an intention.
+Kept as required by `docs/ai_usage_policy.md`. "Checked by" names the verification actually performed (test, reference comparison, hand calculation, documentation lookup), not an intention. Dates are the logbook dates of the work.
 
-| Date | Tool | Task | Significant assistance received | Changes I made | Checked by |
+| Period | Tool | Task | Significant assistance received | Changes I made | Checked by |
 |---|---|---|---|---|---|
-| | | | | | |
+| 24–25 June | AI assistant | Free-stream derivation and conditions module | Drafted `aether/conditions.py` (Sutherland, Rayleigh pitot, Fay–Riddell) from my written specification | Fixed the stagnation-temperature assumption and the units of the Fay–Riddell constant | Hand calculation of ρ∞, U∞, p_t2 against the tunnel envelope; Fay–Riddell against the textbook value |
+| 26–30 June | AI assistant | Geometry module and tests | Drafted the tangent-join construction and the SVG export from my sketch of the construction | Rewrote the validity rules; added the fillet after the sharp-corner vacuum | Landmarks of the Apollo model reproduced to 0.002 in S/R; 14 unit tests |
+| 1–7 July | AI assistant | Structured mesh generator | Drafted the normal-smoothing and far-boundary intersection routines | Chose the refinement family and the spacings; added the truncation at the cone end | Quality report (no inverted cells), SU2 dry runs, mesh study |
+| 5–13 July | AI assistant | SU2 configuration, run control, post-processing | Explained SU2 options (fluxes, limiters, CFL adaptation, axisymmetric markers); drafted the runner and the VTK wall extraction | Decided the three-stage procedure and the physical-branch check; wrote the convergence rule | Cylinder benchmark against NASA TM 100484; Apollo pressure distribution against TM X-1243; drag integration cross-check |
+| 7–11 July | AI assistant | Axisymmetric near-axis defect | Helped locate the relevant SU2 issues and pull request; explained the source-term change | Rebuilt the solver with the patch; designed and ran the sphere test | Sphere test on the validated cylinder mesh: monotone heating, residual to 10^-9 |
+| 14–18 July | AI assistant | Carbuncle branch and mesh families | Explained the literature on carbuncle suppression by cell aspect ratio | Decided the solution-sequencing test, the second and third mesh families, and the rule that retried solutions are not ranked | Plateau against the nose-radius scaling; 14 shapes on two families within 0.8 % |
+| 15 July | AI assistant | GCI routine | Reviewed `aether/convergence.py` after I questioned the fine-level value | Found and fixed the absolute value on the observed order myself; added the non-asymptotic flag | Unit test on synthetic triplets; family-B triplet monotone with p = 1.5 |
+| 19–24 July | AI assistant | Analysis, figures, tables | Drafted the Pareto, sensitivity and plotting code; reviewed the result tables | Wrote the selection rules and the ranking-margin definition | Every table number re-read against `results/results.csv` and the case summaries |
+| 21 July – 31 July | AI assistant | Report, slides, poster, video scripts | Reviewed drafts for clarity and consistency; drafted the ParaView and video assembly scripts | Wrote the results, discussion, limitations and conclusions; chose every figure | Numbers cross-checked against `results/tables.md`; limitations section rewritten by me |

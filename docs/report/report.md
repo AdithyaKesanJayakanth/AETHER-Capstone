@@ -2,10 +2,12 @@
 title: "Project AETHER — Multi-Objective Shape Study of a Hypersonic Re-entry Capsule Heat Shield"
 subtitle: "Aerodynamic Evaluation of Thermal Hazards in Entry Regimes"
 author: "Adithya Kesan Jayakanth"
-date: "August 2026"
+date: "31 July 2026"
 abstract: |
   This study asks how the nose radius, shoulder radius and rear-body cone half-angle of an Apollo-like axisymmetric capsule change its drag coefficient and the peak convective heat flux on its heat shield at one fixed hypersonic condition, the clean Apollo command-module test of NASA TM X-1243 (Mach 10.18, Re_D = 1.1 × 10^6^, cold wall). Twenty shapes were computed with laminar perfect-gas Navier–Stokes simulations (SU2 v8.5.0, first-order SLAU2 with a Roe start-up, axisymmetric with a near-axis source-term patch) on body-fitted structured meshes generated from the same parameter table, validated against the Apollo pressure and heating distributions and against the Wieting cylinder heating benchmark, and assessed with a three-level mesh study (observed order 1.5 for the peak heating, medium-level GCI 3.1 %), a far-boundary check and fine-level re-runs of the finalists. Drag is set by the nose radius (C_D 1.13–1.48 over R_n/D = 0.6–1.6) and the shoulder radius (1.50–1.24 over R_s/D = 0.03–0.18); the cone half-angle changes drag and heating by less than 0.4 %. The peak heating sits at the cap/toroid tangency for every shape with R_n/D ≥ 1 and has a minimum near R_n/D = 1.0. The nondominated set is {R_s/D = 0.03; the baseline family; R_n/D = 1.0; R_n/D = 1.0 with R_s/D = 0.12}; the stated selection rule (lowest peak heating at ≥ 98 % of the baseline drag) selects R_n/D = 1.0, which lowers the peak heating by 5.3 % for 1.8 % less drag, a difference four times the ranking margin established by refinement (0.24 % in drag, 1.4 % in heating). The study also documents a mesh-dependent carbuncle branch of the first-order scheme, the physical checks that detect it and the cell elongation along the shock that removes it.
 ---
+
+*Grade 12, Padma Seshadri Bala Bhavan Senior Secondary School, K.K. Nagar, Chennai, India. Mentor and guide: Mrs. Abitha Peter, Class 12 Physics teacher. Repository: https://github.com/AdithyaKesanJayakanth/AETHER-Capstone.*
 
 # Introduction
 
@@ -157,6 +159,14 @@ Figure files: `results/figures/pareto.png` (trade space with the margins as erro
 # Reproducibility
 
 Every number in this report is produced by `make all` from the repository (`README.md`): meshes, configurations, solver logs, convergence histories, wall profiles and summaries are kept per case under `cases/`, and `results/results.csv` lists every case including the failed and the rejected ones. Software versions are recorded in `docs/versions.md`; the solver patch is `tools/aether_su2_patches.diff`.
+
+# AI usage and research ownership
+
+I used an AI assistant as a programming assistant, tutor and reviewer, under the policy written at the start of the project (`docs/ai_usage_policy.md`): it drafted and helped debug parts of the Python pipeline, explained solver options and numerical behaviour when I asked, and reviewed drafts of this text. I defined the geometry family, the condition, the objectives and the selection rule before any result; I chose the benchmarks, the mesh families and the convergence rules; the physical checks that exposed the carbuncle branch and the low-CFL transients were mine, as are the interpretation and the conclusions. I reviewed and tested every piece of assisted code that touches geometry, configuration, force normalisation, heat-flux extraction or ranking, and every number in this paper is produced by the code in the repository and checked against reference data, a mesh study or a hand calculation. The log of assistance actually used, and how each output was checked, is `docs/ai_use_log.md`.
+
+# Acknowledgements
+
+I thank Mrs. Abitha Peter, my Class 12 physics teacher, for her mentorship and guidance throughout this project, and the SU2 developers for an open solver whose source could be read, patched and rebuilt. Any errors are mine.
 
 # References
 
