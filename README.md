@@ -15,7 +15,7 @@ A student engineering study of how the shape of an Apollo-like re-entry capsule 
 - **Every solver case** with its mesh, configuration, log, history and summary under `cases/`; `results/results.csv` links every number in the paper to its case directory
 - **Project plan**: [AETHER_Capstone.md](AETHER_Capstone.md) (planned in April; the work ran June–August 2026)
 
-Author: Adithya Kesan Jayakanth (adithya.kesan@icloud.com), Padma Seshadri Bala Bhavan Senior Secondary School, K.K. Nagar, Chennai. Mentor and guide: Mrs. Abitha Peter, Class 12 Physics teacher.
+Author: Adithya Kesan Jayakanth (adithya.kesan@icloud.com), Padma Seshadri Bala Bhavan Senior Secondary School, K.K. Nagar, Chennai. Mentor and guide: Mrs. Abhitha Peter, Class 12 Physics teacher.
 
 ## What this repository contains
 
